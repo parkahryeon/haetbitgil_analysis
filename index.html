@@ -1,0 +1,992 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>태양광 경제성 분석기</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.8);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 10px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .radio-option:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .radio-option.active {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        input[type="number"],
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="number"]:focus,
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .auto-calc {
+            background: #f8f9fa;
+            border-color: #dee2e6;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .result-card h3 {
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .result-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .result-card .unit {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        tr.break-even {
+            background: #fff3cd !important;
+            border-left: 4px solid #ffc107;
+        }
+
+        .investment-breakdown {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .breakdown-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        .breakdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .breakdown-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .breakdown-value {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .calculate-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .calculate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .calculate-btn:active {
+            transform: translateY(0);
+        }
+
+        .method-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .method-card {
+            border: 2px solid #e1e5e9;
+            border-radius: 15px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: white;
+        }
+
+        .method-card.active {
+            border-color: #764ba2;
+            background: rgba(118, 75, 162, 0.1);
+            color: #4a2e73;
+            box-shadow: 0 12px 25px rgba(118, 75, 162, 0.18);
+        }
+
+        .method-card h3 {
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .method-card p {
+            color: #555;
+            line-height: 1.5;
+        }
+
+        .mode-section {
+            margin-top: 20px;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            padding: 15px;
+            border-radius: 10px;
+            color: #856404;
+            margin-bottom: 20px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 1024px) {
+            .method-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .result-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>☀️ 태양광 경제성 분석기</h1>
+            <p>투자 방식별 맞춤 경제성 분석을 간편하게 확인하세요.</p>
+        </div>
+
+        <div class="card">
+            <h2>💼 투자 방식 선택</h2>
+            <div class="method-grid">
+                <div class="method-card active" id="methodA" onclick="selectInvestmentMethod('A')">
+                    <h3>A. 자기자본 투자</h3>
+                    <p>기본 투자 방식. 대출을 선택하면 원리금균등상환 방식이 적용됩니다.</p>
+                </div>
+                <div class="method-card" id="methodB" onclick="selectInvestmentMethod('B')">
+                    <h3>B. 2026 건물지원사업</h3>
+                    <p>자가소비 목적만 지원 가능. 2026년 보조금 계산과 REMS 연계비용 지원 포함.</p>
+                </div>
+                <div class="method-card" id="methodC" onclick="selectInvestmentMethod('C')">
+                    <h3>C. 무자본 팩토링</h3>
+                    <p>총 투자금액 입력 후 10년 상환 스케줄로 계산. 거치 기간 동안 이자만 납부합니다.</p>
+                </div>
+            </div>
+
+            <div id="modeASection" class="mode-section">
+                <div class="form-group">
+                    <label><input type="checkbox" id="loanUsedA" onchange="updateLoanVisibility()"> 대출 사용</label>
+                </div>
+                <div id="loanSectionA" class="hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>대출 원금 (원)</label>
+                            <input type="number" id="loanPrincipalA" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>연 이자율 (%)</label>
+                            <input type="number" id="loanRateA" min="0" step="0.1" value="6">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>대출 기간 (년)</label>
+                            <input type="number" id="loanTermA" min="1" value="10">
+                        </div>
+                        <div class="form-group">
+                            <label>거치 기간 (년)</label>
+                            <input type="number" id="loanGraceA" min="0" value="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="modeBSection" class="mode-section hidden">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>신청자 유형</label>
+                        <select id="applicantType" onchange="updateModeUI()">
+                            <option value="general">일반</option>
+                            <option value="farm">축사·축산시설</option>
+                            <option value="re100">RE100·산단·공장</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>REMS 연계비용 보조금</label>
+                        <div class="radio-group">
+                            <label class="radio-option" onclick="toggleRemsSupport(true)"><input type="radio" name="remsSupport" value="true"> 적용</label>
+                            <label class="radio-option" onclick="toggleRemsSupport(false)"><input type="radio" name="remsSupport" value="false" checked> 미적용</label>
+                        </div>
+                    </div>
+                </div>
+                <div id="grantWarning" class="warning-box hidden">
+                    건물지원사업은 자가소비 목적만 지원 가능합니다.
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="loanUsedB" onchange="updateLoanVisibility()"> 자부담에 대한 대출 사용</label>
+                </div>
+                <div id="loanSectionB" class="hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>대출 원금 (원)</label>
+                            <input type="number" id="loanPrincipalB" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>연 이자율 (%)</label>
+                            <input type="number" id="loanRateB" min="0" step="0.1" value="6">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>대출 기간 (년)</label>
+                            <input type="number" id="loanTermB" min="1" value="10">
+                        </div>
+                        <div class="form-group">
+                            <label>거치 기간 (년)</label>
+                            <input type="number" id="loanGraceB" min="0" value="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="modeCSection" class="mode-section hidden">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>총 투자금액 (원)</label>
+                        <input type="number" id="factoringInvestment" min="0" value="100000000">
+                    </div>
+                    <div class="form-group">
+                        <label>서울보증보험 보증료율 (%)</label>
+                        <input type="number" id="guaranteeRate" min="0" step="0.1" value="11">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>연 이자율 (%)</label>
+                        <input type="number" id="factoringRate" min="0" step="0.1" value="6">
+                    </div>
+                    <div class="form-group">
+                        <label>거치 기간 (년)</label>
+                        <input type="number" id="factoringGrace" min="0" value="1">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>상환 기간 (년)</label>
+                        <input type="number" id="factoringTerm" min="1" value="9">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>📝 기본 입력 정보</h2>
+                <form id="solarForm">
+                    <div class="form-group">
+                        <label>설치 유형</label>
+                        <div class="radio-group">
+                            <div class="radio-option active" data-value="토지" onclick="selectOption(this, 'location')">
+                                <input type="radio" name="location" value="토지" checked>
+                                <span>토지</span>
+                            </div>
+                            <div class="radio-option" data-value="옥상" onclick="selectOption(this, 'location')">
+                                <input type="radio" name="location" value="옥상">
+                                <span>옥상</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>설치 용량 (kW)</label>
+                            <input type="number" id="capacity" min="0" step="0.1" value="100" onchange="updateModeUI()">
+                        </div>
+                        <div class="form-group">
+                            <label>목적</label>
+                            <div class="radio-group">
+                                <div class="radio-option active" data-value="판매용" onclick="selectOption(this, 'purpose')">
+                                    <input type="radio" name="purpose" value="판매용" checked>
+                                    <span>판매용</span>
+                                </div>
+                                <div class="radio-option" data-value="자가소비용" onclick="selectOption(this, 'purpose')">
+                                    <input type="radio" name="purpose" value="자가소비용">
+                                    <span>자가소비용</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>설치단가 (원/kW)</label>
+                            <input type="number" id="unitPrice" min="0" value="1000000">
+                        </div>
+                        <div class="form-group">
+                            <label>계통연계비 (원)</label>
+                            <input type="number" id="connectionFee" min="0" value="5000000">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>보증보험료 (원)</label>
+                            <input type="number" id="insuranceFee" min="0" class="auto-calc">
+                        </div>
+                        <div class="form-group">
+                            <label>일일 발전시간 (시간)</label>
+                            <input type="number" id="dailyHours" min="0" step="0.1" value="3.8">
+                        </div>
+                    </div>
+
+                    <div class="form-row" id="sellInputs">
+                        <div class="form-group">
+                            <label>SMP 단가 (원/kWh)</label>
+                            <input type="number" id="smpPrice" min="0" step="0.1" value="135.6">
+                        </div>
+                        <div class="form-group">
+                            <label>REC 배수 (배)</label>
+                            <input type="number" id="recMultiplier" min="0" step="0.1" value="1.5">
+                        </div>
+                    </div>
+
+                    <div class="form-row hidden" id="selfInputs">
+                        <div class="form-group">
+                            <label>한전 요금제</label>
+                            <select id="electricityPlan" onchange="updateElectricityPrice()">
+                                <option value="130">저압 일반용 (주택용)</option>
+                                <option value="120" selected>고압 일반용 (산업용)</option>
+                                <option value="110">선택약정 할인</option>
+                                <option value="140">시간대별 요금제</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>한전요금단가 (원/kWh)</label>
+                            <input type="number" id="electricityPrice" min="0" step="0.1" value="120" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>안전관리자 비용 (원/년)</label>
+                        <input type="number" id="safetyCost" min="0" value="1200000">
+                    </div>
+
+                    <button type="button" class="calculate-btn" onclick="calculateSolar()">계산하기</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2>💰 투자금액 상세</h2>
+                <div id="investmentBreakdown" class="investment-breakdown"></div>
+
+                <h2>📊 요약 결과</h2>
+                <div id="results" class="result-grid hidden">
+                    <div class="result-card">
+                        <h3>손익분기점</h3>
+                        <div class="value" id="breakEven">-</div>
+                        <div class="unit">년</div>
+                    </div>
+                    <div class="result-card">
+                        <h3>20년 총 수익</h3>
+                        <div class="value" id="totalProfit">-</div>
+                        <div class="unit">원</div>
+                    </div>
+                    <div class="result-card">
+                        <h3>ROI</h3>
+                        <div class="value" id="roi">-</div>
+                        <div class="unit">%</div>
+                    </div>
+                    <div class="result-card">
+                        <h3>연평균 수익</h3>
+                        <div class="value" id="avgProfit">-</div>
+                        <div class="unit">원</div>
+                    </div>
+                    <div class="result-card">
+                        <h3>실제 자기투자금액</h3>
+                        <div class="value" id="selfInvestment">-</div>
+                        <div class="unit">원</div>
+                    </div>
+                    <div class="result-card">
+                        <h3>총 금융비용</h3>
+                        <div class="value" id="totalFinanceCost">-</div>
+                        <div class="unit">원</div>
+                    </div>
+                    <div class="result-card">
+                        <h3>금융비용 제외 순수익</h3>
+                        <div class="value" id="profitExcludingFinance">-</div>
+                        <div class="unit">원</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📋 연도별 상세 분석</h2>
+            <div class="table-container">
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>연도</th>
+                            <th>용량 (kW)</th>
+                            <th>발전량 (kWh)</th>
+                            <th>발전수익 (원)</th>
+                            <th>원리금/이자 (원)</th>
+                            <th>순수익 (원)</th>
+                            <th>누적 순수익 (원)</th>
+                            <th>투자대비수익률 (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedMethod = 'A';
+
+        function selectInvestmentMethod(method) {
+            selectedMethod = method;
+            document.querySelectorAll('.method-card').forEach(card => card.classList.remove('active'));
+            document.getElementById('method' + method).classList.add('active');
+            updateModeUI();
+        }
+
+        function selectOption(element, group) {
+            const groupElements = document.querySelectorAll(`[data-value][onclick*="${group}"]`);
+            groupElements.forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            const radio = element.querySelector('input[type="radio"]');
+            radio.checked = true;
+            if (group === 'purpose') {
+                const sellInputs = document.getElementById('sellInputs');
+                const selfInputs = document.getElementById('selfInputs');
+                if (element.dataset.value === '판매용') {
+                    sellInputs.classList.remove('hidden');
+                    selfInputs.classList.add('hidden');
+                } else {
+                    sellInputs.classList.add('hidden');
+                    selfInputs.classList.remove('hidden');
+                }
+                updateModeUI();
+            }
+            if (group === 'location') {
+                const dailyHoursInput = document.getElementById('dailyHours');
+                if (element.dataset.value === '토지') {
+                    dailyHoursInput.value = 3.8;
+                } else {
+                    dailyHoursInput.value = 3.5;
+                }
+            }
+            updateInsuranceFee();
+        }
+
+        function updateModeUI() {
+            document.getElementById('modeASection').classList.toggle('hidden', selectedMethod !== 'A');
+            document.getElementById('modeBSection').classList.toggle('hidden', selectedMethod !== 'B');
+            document.getElementById('modeCSection').classList.toggle('hidden', selectedMethod !== 'C');
+            updateLoanVisibility();
+            const purpose = document.querySelector('input[name="purpose"]:checked').value;
+            document.getElementById('grantWarning').classList.toggle('hidden', !(selectedMethod === 'B' && purpose === '판매용'));
+        }
+
+        function updateLoanVisibility() {
+            const showA = selectedMethod === 'A' && document.getElementById('loanUsedA').checked;
+            const showB = selectedMethod === 'B' && document.getElementById('loanUsedB').checked;
+            document.getElementById('loanSectionA').classList.toggle('hidden', !showA);
+            document.getElementById('loanSectionB').classList.toggle('hidden', !showB);
+        }
+
+        function updateElectricityPrice() {
+            const planSelect = document.getElementById('electricityPlan');
+            const priceInput = document.getElementById('electricityPrice');
+            priceInput.value = planSelect.value;
+        }
+
+        function toggleRemsSupport(value) {
+            document.getElementsByName('remsSupport').forEach(radio => {
+                radio.checked = radio.value === String(value);
+            });
+        }
+
+        function updateInsuranceFee() {
+            const capacity = parseFloat(document.getElementById('capacity').value) || 0;
+            const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
+            const connectionFee = parseFloat(document.getElementById('connectionFee').value) || 0;
+            const totalInvestment = (capacity * unitPrice) + connectionFee;
+            const insuranceFee = totalInvestment * 0.11;
+            document.getElementById('insuranceFee').value = Math.round(insuranceFee);
+        }
+
+        function calculateLoanSchedule(principal, rate, term, grace) {
+            const schedule = [];
+            const annualRate = rate / 100;
+            let outstanding = principal;
+            const principalPayment = term > 0 ? principal / term : 0;
+            for (let year = 1; year <= grace + term; year++) {
+                if (year <= grace) {
+                    const interest = principal * annualRate;
+                    schedule.push({ payment: interest, interest, principal: 0, remaining: outstanding });
+                } else {
+                    const interest = outstanding * annualRate;
+                    const payment = principalPayment + interest;
+                    outstanding -= principalPayment;
+                    schedule.push({ payment, interest, principal: principalPayment, remaining: outstanding });
+                }
+            }
+            return schedule;
+        }
+
+        function calculateGrant(capacity, type, remsSelected, purpose) {
+            if (purpose === '판매용') {
+                return { grantAmount: 0, remsAmount: 0 };
+            }
+            const supportCapacity = Math.min(capacity, 1000);
+            let grantAmount = 0;
+            if (type === 'general') {
+                if (supportCapacity <= 200) {
+                    grantAmount = supportCapacity * 525000;
+                } else {
+                    grantAmount = 200 * 525000 + (supportCapacity - 200) * 414000;
+                }
+            } else if (type === 'farm') {
+                grantAmount = supportCapacity * 571000;
+            } else if (type === 're100') {
+                if (supportCapacity <= 200) {
+                    grantAmount = supportCapacity * 525000;
+                } else {
+                    grantAmount = 200 * 525000 + (supportCapacity - 200) * 414000;
+                }
+            }
+            const remsAmount = remsSelected ? 610000 : 0;
+            return { grantAmount, remsAmount };
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('ko-KR').format(Math.round(value)) + '원';
+        }
+
+        function formatNumber(value) {
+            return new Intl.NumberFormat('ko-KR').format(Math.round(value));
+        }
+
+        function renderInvestmentBreakdown(rows) {
+            const container = document.getElementById('investmentBreakdown');
+            container.innerHTML = '';
+            rows.forEach(row => {
+                const item = document.createElement('div');
+                item.className = 'breakdown-item';
+                item.innerHTML = `<span class="breakdown-label">${row.label}</span><span class="breakdown-value">${row.value}</span>`;
+                container.appendChild(item);
+            });
+        }
+
+        function calculateSolar() {
+            const capacity = parseFloat(document.getElementById('capacity').value) || 0;
+            const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
+            const connectionFee = parseFloat(document.getElementById('connectionFee').value) || 0;
+            const insuranceFee = parseFloat(document.getElementById('insuranceFee').value) || 0;
+            const dailyHours = parseFloat(document.getElementById('dailyHours').value) || 0;
+            const purpose = document.querySelector('input[name="purpose"]:checked').value;
+            const safetyCost = parseFloat(document.getElementById('safetyCost').value) || 0;
+            const sellMode = purpose === '판매용';
+            const installCost = capacity * unitPrice;
+            let actualInvestment = 0;
+            let loanPrincipal = 0;
+            let totalInterestCost = 0;
+            let selfInvestment = 0;
+            let totalFinanceCost = 0;
+            let grantAmount = 0;
+            let remsAmount = 0;
+            let selfCost = 0;
+            let factoringGuarantee = 0;
+            let factoringAnnualPrincipal = 0;
+            let factoringTotalInterest = 0;
+            let loanSchedule = [];
+            if (selectedMethod === 'A') {
+                actualInvestment = installCost + connectionFee + insuranceFee;
+                if (document.getElementById('loanUsedA').checked) {
+                    loanPrincipal = parseFloat(document.getElementById('loanPrincipalA').value) || 0;
+                    const loanRate = parseFloat(document.getElementById('loanRateA').value) || 0;
+                    const loanTerm = parseInt(document.getElementById('loanTermA').value) || 0;
+                    const loanGrace = parseInt(document.getElementById('loanGraceA').value) || 0;
+                    loanSchedule = calculateLoanSchedule(loanPrincipal, loanRate, loanTerm, loanGrace);
+                    totalInterestCost = loanSchedule.reduce((sum, item) => sum + item.interest, 0);
+                }
+                selfInvestment = actualInvestment - loanPrincipal;
+                totalFinanceCost = totalInterestCost;
+            } else if (selectedMethod === 'B') {
+                const applicantType = document.getElementById('applicantType').value;
+                const remsSelected = document.querySelector('input[name="remsSupport"]:checked').value === 'true';
+                const grantData = calculateGrant(capacity, applicantType, remsSelected, purpose);
+                grantAmount = grantData.grantAmount;
+                remsAmount = grantData.remsAmount;
+                selfCost = Math.max(installCost - grantAmount, 0);
+                actualInvestment = selfCost + connectionFee + insuranceFee;
+                if (document.getElementById('loanUsedB').checked) {
+                    loanPrincipal = parseFloat(document.getElementById('loanPrincipalB').value) || 0;
+                    const loanRate = parseFloat(document.getElementById('loanRateB').value) || 0;
+                    const loanTerm = parseInt(document.getElementById('loanTermB').value) || 0;
+                    const loanGrace = parseInt(document.getElementById('loanGraceB').value) || 0;
+                    loanSchedule = calculateLoanSchedule(loanPrincipal, loanRate, loanTerm, loanGrace);
+                    totalInterestCost = loanSchedule.reduce((sum, item) => sum + item.interest, 0);
+                }
+                selfInvestment = actualInvestment - loanPrincipal;
+                totalFinanceCost = totalInterestCost;
+            } else if (selectedMethod === 'C') {
+                const factoringInvestment = parseFloat(document.getElementById('factoringInvestment').value) || 0;
+                const guaranteeRate = parseFloat(document.getElementById('guaranteeRate').value) || 0;
+                const factoringRate = parseFloat(document.getElementById('factoringRate').value) || 0;
+                const factoringGrace = parseInt(document.getElementById('factoringGrace').value) || 0;
+                const factoringTerm = parseInt(document.getElementById('factoringTerm').value) || 0;
+                actualInvestment = 0;
+                loanPrincipal = factoringInvestment;
+                factoringGuarantee = factoringInvestment * (guaranteeRate / 100);
+                factoringAnnualPrincipal = factoringInvestment / factoringTerm;
+                let outstanding = factoringInvestment;
+                for (let year = 1; year <= factoringGrace + factoringTerm; year++) {
+                    if (year <= factoringGrace) {
+                        const interest = factoringInvestment * (factoringRate / 100);
+                        factoringTotalInterest += interest;
+                    } else {
+                        const interest = outstanding * (factoringRate / 100);
+                        factoringTotalInterest += interest;
+                        outstanding -= factoringAnnualPrincipal;
+                    }
+                }
+                totalInterestCost = factoringTotalInterest;
+                totalFinanceCost = totalInterestCost;
+                selfInvestment = 0;
+            }
+            const investmentRows = [
+                { label: '설치비용', value: formatCurrency(installCost) },
+                { label: '계통연계비', value: formatCurrency(connectionFee) },
+                { label: '보증보험료', value: formatCurrency(insuranceFee) }
+            ];
+            if (selectedMethod === 'B') {
+                investmentRows.push({ label: '보조금액', value: formatCurrency(grantAmount) });
+                investmentRows.push({ label: 'REMS 보조금', value: formatCurrency(remsAmount) });
+                investmentRows.push({ label: '자부담액', value: formatCurrency(selfCost) });
+            }
+            if (selectedMethod === 'A' || selectedMethod === 'B') {
+                investmentRows.push({ label: '총 투자금액', value: formatCurrency(actualInvestment) });
+                investmentRows.push({ label: '자기자본', value: formatCurrency(selfInvestment) });
+                investmentRows.push({ label: '대출원금', value: formatCurrency(loanPrincipal) });
+                investmentRows.push({ label: '총 이자비용', value: formatCurrency(totalInterestCost) });
+            }
+            if (selectedMethod === 'C') {
+                investmentRows.push({ label: '총 투자금액', value: formatCurrency(loanPrincipal) });
+                investmentRows.push({ label: '보증보험료', value: formatCurrency(factoringGuarantee) });
+                investmentRows.push({ label: '연간 원금상환액', value: formatCurrency(factoringAnnualPrincipal) });
+                investmentRows.push({ label: '총 이자비용', value: formatCurrency(factoringTotalInterest) });
+            }
+            renderInvestmentBreakdown(investmentRows);
+            const results = [];
+            let cumulativeProfit = -actualInvestment;
+            let breakEvenYear = null;
+            for (let year = 1; year <= 20; year++) {
+                let currentCapacity = capacity;
+                if (year >= 2) {
+                    currentCapacity = capacity * Math.pow(0.9967, year - 1);
+                }
+                let production = currentCapacity * dailyHours * 365;
+                if (year >= 2) {
+                    production *= Math.pow(0.9967, year - 1);
+                }
+                let annualRevenue = 0;
+                if (sellMode) {
+                    const smpPrice = parseFloat(document.getElementById('smpPrice').value) || 0;
+                    const recMultiplier = parseFloat(document.getElementById('recMultiplier').value) || 0;
+                    const smpRevenue = production * smpPrice;
+                    const recRevenue = production * (smpPrice * recMultiplier - smpPrice);
+                    annualRevenue = smpRevenue + recRevenue;
+                } else {
+                    const electricityPrice = parseFloat(document.getElementById('electricityPrice').value) || 0;
+                    annualRevenue = production * electricityPrice;
+                }
+                let warrantyFactor = 1;
+                if (year === 2) {
+                    warrantyFactor = 0.985;
+                } else if (year >= 3) {
+                    warrantyFactor = 0.985 * Math.pow(0.9967, year - 2);
+                }
+                annualRevenue *= warrantyFactor;
+                const currentSafetyCost = safetyCost * Math.pow(1.01, year - 1);
+                let paymentAmount = 0;
+                if (selectedMethod === 'A' || selectedMethod === 'B') {
+                    paymentAmount = loanSchedule[year - 1] ? loanSchedule[year - 1].payment : 0;
+                } else if (selectedMethod === 'C') {
+                    const factoringInvestment = parseFloat(document.getElementById('factoringInvestment').value) || 0;
+                    const factoringRate = parseFloat(document.getElementById('factoringRate').value) || 0;
+                    const factoringGrace = parseInt(document.getElementById('factoringGrace').value) || 0;
+                    const factoringTerm = parseInt(document.getElementById('factoringTerm').value) || 0;
+                    const factoringAnnualPrincipalCalc = factoringInvestment / factoringTerm;
+                    if (year <= factoringGrace) {
+                        paymentAmount = factoringInvestment * (factoringRate / 100);
+                    } else if (year <= factoringGrace + factoringTerm) {
+                        const outstanding = factoringInvestment - factoringAnnualPrincipalCalc * (year - factoringGrace - 1);
+                        const interest = outstanding * (factoringRate / 100);
+                        paymentAmount = factoringAnnualPrincipalCalc + interest;
+                    } else {
+                        paymentAmount = 0;
+                    }
+                }
+                const netProfit = annualRevenue - currentSafetyCost - paymentAmount;
+                cumulativeProfit += netProfit;
+                const roiPercent = actualInvestment > 0 ? (cumulativeProfit / actualInvestment) * 100 : 0;
+                results.push({
+                    year,
+                    capacity: currentCapacity,
+                    production,
+                    revenue: annualRevenue,
+                    payment: paymentAmount,
+                    netProfit,
+                    cumulative: cumulativeProfit,
+                    roi: roiPercent
+                });
+                if (breakEvenYear === null && cumulativeProfit >= 0) {
+                    breakEvenYear = year;
+                }
+            }
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('results').classList.add('fade-in');
+            document.getElementById('breakEven').textContent = breakEvenYear || '20년 초과';
+            document.getElementById('totalProfit').textContent = formatCurrency(results[results.length - 1].cumulative);
+            document.getElementById('roi').textContent = results[results.length - 1].roi.toFixed(1);
+            document.getElementById('avgProfit').textContent = formatCurrency(results[results.length - 1].cumulative / 20);
+            document.getElementById('selfInvestment').textContent = formatCurrency(selfInvestment);
+            document.getElementById('totalFinanceCost').textContent = formatCurrency(totalFinanceCost);
+            document.getElementById('profitExcludingFinance').textContent = formatCurrency(results[results.length - 1].cumulative + totalFinanceCost);
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+            results.forEach(result => {
+                const row = document.createElement('tr');
+                if (result.year === breakEvenYear) {
+                    row.classList.add('break-even');
+                }
+                row.innerHTML = `
+                    <td>${result.year}</td>
+                    <td>${result.capacity.toFixed(1)}</td>
+                    <td>${formatNumber(result.production)}</td>
+                    <td>${formatCurrency(result.revenue)}</td>
+                    <td>${result.payment ? formatCurrency(result.payment) : '-'}</td>
+                    <td>${formatCurrency(result.netProfit)}</td>
+                    <td>${formatCurrency(result.cumulative)}</td>
+                    <td>${result.roi.toFixed(1)}%</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateInsuranceFee();
+            updateElectricityPrice();
+            updateModeUI();
+        });
+    </script>
+</body>
+</html>
