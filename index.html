@@ -653,6 +653,7 @@
             selectedMethod = method;
             document.querySelectorAll('.method-card').forEach(card => card.classList.remove('active'));
             document.getElementById('method' + method).classList.add('active');
+            document.getElementById('investmentBreakdown').innerHTML = '';
             updateModeUI();
         }
 
@@ -692,7 +693,12 @@
             updateLoanVisibility();
             const purpose = document.querySelector('input[name="purpose"]:checked').value;
             document.getElementById('grantWarning').classList.toggle('hidden', !(selectedMethod === 'B' && purpose === '판매용'));
-            document.getElementById('insuranceGroup').classList.add('hidden');
+            const insuranceGroup = document.getElementById('insuranceGroup');
+            if (selectedMethod === 'C') {
+                insuranceGroup.classList.remove('hidden');
+            } else {
+                insuranceGroup.classList.add('hidden');
+            }
         }
 
         function updateLoanVisibility() {
@@ -870,14 +876,16 @@
                 investmentRows.push({ label: '보조금액', value: formatCurrency(grantAmount) });
                 investmentRows.push({ label: 'REMS 보조금', value: formatCurrency(remsAmount) });
                 investmentRows.push({ label: '자부담액', value: formatCurrency(selfCost) });
-            }
-            if (selectedMethod === 'A' || selectedMethod === 'B') {
                 investmentRows.push({ label: '총 투자금액', value: formatCurrency(actualInvestment) });
                 investmentRows.push({ label: '자기자본', value: formatCurrency(selfInvestment) });
                 investmentRows.push({ label: '대출원금', value: formatCurrency(loanPrincipal) });
                 investmentRows.push({ label: '총 이자비용', value: formatCurrency(totalInterestCost) });
-            }
-            if (selectedMethod === 'C') {
+            } else if (selectedMethod === 'A') {
+                investmentRows.push({ label: '총 투자금액', value: formatCurrency(actualInvestment) });
+                investmentRows.push({ label: '자기자본', value: formatCurrency(selfInvestment) });
+                investmentRows.push({ label: '대출원금', value: formatCurrency(loanPrincipal) });
+                investmentRows.push({ label: '총 이자비용', value: formatCurrency(totalInterestCost) });
+            } else if (selectedMethod === 'C') {
                 const totalInvestment = loanPrincipal + factoringGuarantee;
                 investmentRows.push({ label: '총 투자금액', value: formatCurrency(totalInvestment) });
                 investmentRows.push({ label: '보증보험료', value: formatCurrency(factoringGuarantee) });
