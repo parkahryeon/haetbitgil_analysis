@@ -533,7 +533,7 @@
                     </div>
 
                     <div class="form-row">
-                        <div class="form-group">
+                        <div class="form-group hidden" id="insuranceGroup">
                             <label>보증보험료 (원)</label>
                             <input type="number" id="insuranceFee" min="0" class="auto-calc">
                         </div>
@@ -692,6 +692,7 @@
             updateLoanVisibility();
             const purpose = document.querySelector('input[name="purpose"]:checked').value;
             document.getElementById('grantWarning').classList.toggle('hidden', !(selectedMethod === 'B' && purpose === '판매용'));
+            document.getElementById('insuranceGroup').classList.add('hidden');
         }
 
         function updateLoanVisibility() {
@@ -789,7 +790,6 @@
             const capacity = parseFloat(document.getElementById('capacity').value) || 0;
             const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
             const connectionFee = parseFloat(document.getElementById('connectionFee').value) || 0;
-            const insuranceFee = parseFloat(document.getElementById('insuranceFee').value) || 0;
             const dailyHours = parseFloat(document.getElementById('dailyHours').value) || 0;
             const purpose = document.querySelector('input[name="purpose"]:checked').value;
             const safetyCost = parseFloat(document.getElementById('safetyCost').value) || 0;
@@ -808,7 +808,7 @@
             let factoringTotalInterest = 0;
             let loanSchedule = [];
             if (selectedMethod === 'A') {
-                actualInvestment = installCost + connectionFee + insuranceFee;
+                actualInvestment = installCost + connectionFee;
                 if (document.getElementById('loanUsedA').checked) {
                     loanPrincipal = parseFloat(document.getElementById('loanPrincipalA').value) || 0;
                     const loanRate = parseFloat(document.getElementById('loanRateA').value) || 0;
@@ -826,7 +826,7 @@
                 grantAmount = grantData.grantAmount;
                 remsAmount = grantData.remsAmount;
                 selfCost = Math.max(installCost - grantAmount, 0);
-                actualInvestment = selfCost + connectionFee + insuranceFee;
+                actualInvestment = selfCost + connectionFee;
                 if (document.getElementById('loanUsedB').checked) {
                     loanPrincipal = parseFloat(document.getElementById('loanPrincipalB').value) || 0;
                     const loanRate = parseFloat(document.getElementById('loanRateB').value) || 0;
@@ -843,9 +843,9 @@
                 const factoringRate = parseFloat(document.getElementById('factoringRate').value) || 0;
                 const factoringGrace = parseInt(document.getElementById('factoringGrace').value) || 0;
                 const factoringTerm = parseInt(document.getElementById('factoringTerm').value) || 0;
-                actualInvestment = 0;
                 loanPrincipal = factoringInvestment;
                 factoringGuarantee = factoringInvestment * (guaranteeRate / 100);
+                const totalInvestment = factoringInvestment + factoringGuarantee;
                 factoringAnnualPrincipal = factoringInvestment / factoringTerm;
                 let outstanding = factoringInvestment;
                 for (let year = 1; year <= factoringGrace + factoringTerm; year++) {
@@ -864,8 +864,7 @@
             }
             const investmentRows = [
                 { label: '설치비용', value: formatCurrency(installCost) },
-                { label: '계통연계비', value: formatCurrency(connectionFee) },
-                { label: '보증보험료', value: formatCurrency(insuranceFee) }
+                { label: '계통연계비', value: formatCurrency(connectionFee) }
             ];
             if (selectedMethod === 'B') {
                 investmentRows.push({ label: '보조금액', value: formatCurrency(grantAmount) });
@@ -879,7 +878,8 @@
                 investmentRows.push({ label: '총 이자비용', value: formatCurrency(totalInterestCost) });
             }
             if (selectedMethod === 'C') {
-                investmentRows.push({ label: '총 투자금액', value: formatCurrency(loanPrincipal) });
+                const totalInvestment = loanPrincipal + factoringGuarantee;
+                investmentRows.push({ label: '총 투자금액', value: formatCurrency(totalInvestment) });
                 investmentRows.push({ label: '보증보험료', value: formatCurrency(factoringGuarantee) });
                 investmentRows.push({ label: '연간 원금상환액', value: formatCurrency(factoringAnnualPrincipal) });
                 investmentRows.push({ label: '총 이자비용', value: formatCurrency(factoringTotalInterest) });

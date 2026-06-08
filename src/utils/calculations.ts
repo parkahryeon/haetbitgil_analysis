@@ -1,5 +1,5 @@
 export type ScenarioType = 'self' | 'sell'
-export type FinanceType = 'own' | 'loan'
+export type FinanceType = 'own' | 'building' | 'factoring'
 export type LocationType = 'rooftop' | 'ground'
 export type RatePlanType = 'general' | 'progressive' | 'nighttime' | 'industrial'
 
@@ -9,6 +9,8 @@ export interface SolarInputs {
   location: LocationType
   systemSize: number
   installationCost: number
+  gridConnectionCost: number
+  guaranteeFee: number
   annualProduction: number
   annualOandM: number
   subsidy: number
@@ -42,6 +44,12 @@ export interface SolarOutputs {
   paybackPeriod: number | null
   npv: number
   irr: number | null
+  // 투자금액 상세
+  installationCost: number
+  gridConnectionCost: number
+  guaranteeFee: number
+  subsidy: number
+  totalInvestment: number
 }
 
 export function formatKRW(value: number) {
@@ -119,11 +127,27 @@ export function calculateSolarOutputs(inputs: SolarInputs): SolarOutputs {
   const monthlyUsage = estimateMonthlyUsage(inputs.monthlyElectricityCost, inputs.ratePlan)
   const unitCost = getUnitPriceByPlan(inputs.ratePlan, monthlyUsage)
   
-  const subsidy = Math.min(Math.max(inputs.subsidy, 0), inputs.installationCost)
-  const netInvestment = Math.max(inputs.installationCost - subsidy, 0)
-  const annualLoanPayment = inputs.financeType === 'loan' ? amortizingPayment(netInvestment, inputs.loanRate, inputs.loanTerm) * 12 : 0
+  // 투자금액 계산 (투자방식별)
+  let totalInvestment = 0
+  let appliedSubsidy = 0
+  let appliedGuaranteeFee = 0
   
-  const initialCashflow = inputs.financeType === 'own' ? -netInvestment : 0
+  if (inputs.financeType === 'own') {
+    // 자기자본: 총 투자금액 = 설치비용 + 계통연계비
+    totalInvestment = inputs.installationCost + inputs.gridConnectionCost
+  } else if (inputs.financeType === 'building') {
+    // 건물지원사업: 총 투자금액 = (설치비용 - 보조금) + 계통연계비
+    appliedSubsidy = Math.min(Math.max(inputs.subsidy, 0), inputs.installationCost)
+    totalInvestment = (inputs.installationCost - appliedSubsidy) + inputs.gridConnectionCost
+  } else if (inputs.financeType === 'factoring') {
+    // 무자본 팩토링: 총 투자금액 = 설치비용 + 계통연계비 + 보증보험료
+    appliedGuaranteeFee = inputs.guaranteeFee
+    totalInvestment = inputs.installationCost + inputs.gridConnectionCost + appliedGuaranteeFee
+  }
+  
+  const annualLoanPayment = inputs.financeType !== 'own' ? amortizingPayment(totalInvestment, inputs.loanRate, inputs.loanTerm) * 12 : 0
+  
+  const initialCashflow = inputs.financeType === 'own' ? -totalInvestment : 0
   
   const schedule: CashflowYear[] = []
   let cumulative = initialCashflow
@@ -165,13 +189,19 @@ export function calculateSolarOutputs(inputs: SolarInputs): SolarOutputs {
     unitElectricityCost: unitCost,
     annualRevenue: firstYearRevenue,
     annualLoanPayment,
-    initialInvestment: netInvestment,
+    initialInvestment: totalInvestment,
     annualNetCashFlow: firstYearRevenue - inputs.annualOandM - annualLoanPayment,
     cashflowSchedule: schedule,
     cumulative20,
     paybackPeriod,
     npv,
     irr,
+    // 투자금액 상세
+    installationCost: inputs.installationCost,
+    gridConnectionCost: inputs.gridConnectionCost,
+    guaranteeFee: appliedGuaranteeFee,
+    subsidy: appliedSubsidy,
+    totalInvestment,
   }
 }
 

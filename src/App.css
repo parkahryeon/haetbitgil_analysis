@@ -180,6 +180,45 @@ input:focus {
   font-size: 1.05rem;
 }
 
+.detail-grid {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.95rem;
+}
+
+.detail-item.highlight {
+  background: #eff6ff;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border-bottom: none;
+}
+
+.detail-label {
+  color: #475569;
+}
+
+.detail-item.highlight .detail-label {
+  color: #1d4ed8;
+}
+
+.detail-value {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.detail-item.highlight .detail-value {
+  color: #1d4ed8;
+}
+
 .summary-block ul {
   margin: 0;
   padding-left: 20px;

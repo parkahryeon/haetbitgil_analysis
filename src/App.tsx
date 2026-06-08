@@ -14,6 +14,8 @@ const initialInputs: SolarInputs = {
   location: 'rooftop',
   systemSize: 5,
   installationCost: 5000000,
+  gridConnectionCost: 500000,
+  guaranteeFee: 0,
   annualProduction: 19000,
   annualOandM: 150000,
   subsidy: 2000000,
@@ -116,18 +118,17 @@ function App() {
 
           <div className="field-grid">
             <label>
-              설치 용량 (kW)
+              설치 비용 (자동 계산, 원)
+              <input type="text" disabled value={formatKRW(inputs.installationCost)} />
+            </label>
+            <label>
+              계통연계비 (원)
               <input
                 type="number"
                 min="0"
-                step="0.5"
-                value={inputs.systemSize}
-                onChange={(event) => handleNumber('systemSize', event.target.value)}
+                value={inputs.gridConnectionCost}
+                onChange={(event) => handleNumber('gridConnectionCost', event.target.value)}
               />
-            </label>
-            <label>
-              설치 비용 (자동 계산, 원)
-              <input type="text" disabled value={formatKRW(inputs.installationCost)} />
             </label>
           </div>
 
@@ -141,15 +142,28 @@ function App() {
                 onChange={(event) => handleNumber('annualOandM', event.target.value)}
               />
             </label>
-            <label>
-              보조금 / 지원금 (원)
-              <input
-                type="number"
-                min="0"
-                value={inputs.subsidy}
-                onChange={(event) => handleNumber('subsidy', event.target.value)}
-              />
-            </label>
+            {inputs.financeType === 'building' && (
+              <label>
+                보조금 / 지원금 (원)
+                <input
+                  type="number"
+                  min="0"
+                  value={inputs.subsidy}
+                  onChange={(event) => handleNumber('subsidy', event.target.value)}
+                />
+              </label>
+            )}
+            {inputs.financeType === 'factoring' && (
+              <label>
+                보증보험료 (원)
+                <input
+                  type="number"
+                  min="0"
+                  value={inputs.guaranteeFee}
+                  onChange={(event) => handleNumber('guaranteeFee', event.target.value)}
+                />
+              </label>
+            )}
           </div>
 
           <div className="field-group">
@@ -160,14 +174,21 @@ function App() {
                 className={inputs.financeType === 'own' ? 'active' : ''}
                 onClick={() => handleChange('financeType', 'own')}
               >
-                자체 자금
+                자기자본
               </button>
               <button
                 type="button"
-                className={inputs.financeType === 'loan' ? 'active' : ''}
-                onClick={() => handleChange('financeType', 'loan')}
+                className={inputs.financeType === 'building' ? 'active' : ''}
+                onClick={() => handleChange('financeType', 'building')}
               >
-                대출
+                건물지원사업
+              </button>
+              <button
+                type="button"
+                className={inputs.financeType === 'factoring' ? 'active' : ''}
+                onClick={() => handleChange('financeType', 'factoring')}
+              >
+                무자본 팩토링
               </button>
             </div>
           </div>
@@ -183,7 +204,7 @@ function App() {
                 onChange={(event) => handleNumber('discountRate', event.target.value)}
               />
             </label>
-            {inputs.financeType === 'loan' && (
+            {inputs.financeType !== 'own' && (
               <>
                 <label>
                   대출 금리 (%)
@@ -309,6 +330,36 @@ function App() {
             <div className="metric-card">
               <span className="metric-label">1년차 순현금흐름</span>
               <strong>{formatKRW(outputs.annualNetCashFlow)}</strong>
+            </div>
+          </div>
+
+          <div className="summary-block">
+            <h3>투자금액 상세</h3>
+            <div className="detail-grid">
+              <div className="detail-item">
+                <span className="detail-label">설치 비용</span>
+                <span className="detail-value">{formatKRW(outputs.installationCost)}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">계통연계비</span>
+                <span className="detail-value">{formatKRW(outputs.gridConnectionCost)}</span>
+              </div>
+              {outputs.subsidy > 0 && (
+                <div className="detail-item">
+                  <span className="detail-label">보조금</span>
+                  <span className="detail-value">- {formatKRW(outputs.subsidy)}</span>
+                </div>
+              )}
+              {outputs.guaranteeFee > 0 && (
+                <div className="detail-item">
+                  <span className="detail-label">보증보험료</span>
+                  <span className="detail-value">{formatKRW(outputs.guaranteeFee)}</span>
+                </div>
+              )}
+              <div className="detail-item highlight">
+                <span className="detail-label"><strong>총 투자금액</strong></span>
+                <span className="detail-value"><strong>{formatKRW(outputs.totalInvestment)}</strong></span>
+              </div>
             </div>
           </div>
 
