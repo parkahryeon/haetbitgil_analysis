@@ -265,6 +265,37 @@
             transform: translateY(0);
         }
 
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .button-group button {
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .print-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .print-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+        }
+
+        .print-btn:active {
+            transform: translateY(0);
+        }
+
         .method-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -350,6 +381,110 @@
             .result-grid {
                 grid-template-columns: 1fr;
             }
+
+            .button-group {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+
+            .header {
+                margin-bottom: 20px;
+                padding: 20px;
+                page-break-after: avoid;
+            }
+
+            .card {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                page-break-inside: avoid;
+                margin-bottom: 20px;
+            }
+
+            .grid {
+                display: block;
+            }
+
+            .form-row, .radio-group, .method-grid {
+                display: none;
+            }
+
+            #solarForm, .calculate-btn, .print-btn, .button-group {
+                display: none;
+            }
+
+            .investment-breakdown {
+                box-shadow: none;
+                border: 1px solid #ddd;
+            }
+
+            .breakdown-item {
+                padding: 10px 0;
+            }
+
+            .result-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+
+            .result-card {
+                page-break-inside: avoid;
+                padding: 15px;
+                font-size: 0.9rem;
+            }
+
+            .result-card .value {
+                font-size: 1.4rem;
+            }
+
+            .table-container {
+                overflow: visible;
+            }
+
+            table {
+                width: 100%;
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 8px 10px;
+            }
+
+            tr.break-even {
+                background: #f0f0f0 !important;
+            }
+
+            #printPreview {
+                display: block;
+            }
+
+            .print-info {
+                display: none;
+            }
+        }
+
+        #printPreview {
+            display: none;
+        }
+
+        .print-info {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #1565c0;
+            font-size: 0.9rem;
         }
     </style>
 </head>
@@ -526,7 +661,7 @@
                             <label>설치단가 (원/kW)</label>
                             <input type="number" id="unitPrice" min="0" value="1000000">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" id="connectionFeeGroup">
                             <label>계통연계비 (원)</label>
                             <input type="number" id="connectionFee" min="0" value="5000000">
                         </div>
@@ -575,7 +710,10 @@
                         <input type="number" id="safetyCost" min="0" value="1200000">
                     </div>
 
-                    <button type="button" class="calculate-btn" onclick="calculateSolar()">계산하기</button>
+                    <div class="button-group">
+                        <button type="button" class="calculate-btn" onclick="calculateSolar()">계산하기</button>
+                        <button type="button" class="calculate-btn print-btn" onclick="printSolar()">📄 PDF 저장</button>
+                    </div>
                 </form>
             </div>
 
@@ -624,6 +762,12 @@
             </div>
         </div>
 
+        <div id="printPreview" class="card">
+            <div class="print-info">
+                💡 팁: Ctrl+P (Windows) 또는 Cmd+P (Mac)를 눌러 PDF로 저장할 수 있습니다.
+            </div>
+        </div>
+
         <div class="card">
             <h2>📋 연도별 상세 분석</h2>
             <div class="table-container">
@@ -666,12 +810,15 @@
             if (group === 'purpose') {
                 const sellInputs = document.getElementById('sellInputs');
                 const selfInputs = document.getElementById('selfInputs');
+                const connectionFeeGroup = document.getElementById('connectionFeeGroup');
                 if (element.dataset.value === '판매용') {
                     sellInputs.classList.remove('hidden');
                     selfInputs.classList.add('hidden');
+                    connectionFeeGroup.classList.remove('hidden');
                 } else {
                     sellInputs.classList.add('hidden');
                     selfInputs.classList.remove('hidden');
+                    connectionFeeGroup.classList.add('hidden');
                 }
                 updateModeUI();
             }
@@ -795,9 +942,9 @@
         function calculateSolar() {
             const capacity = parseFloat(document.getElementById('capacity').value) || 0;
             const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
-            const connectionFee = parseFloat(document.getElementById('connectionFee').value) || 0;
-            const dailyHours = parseFloat(document.getElementById('dailyHours').value) || 0;
             const purpose = document.querySelector('input[name="purpose"]:checked').value;
+            const connectionFee = purpose === '판매용' ? (parseFloat(document.getElementById('connectionFee').value) || 0) : 0;
+            const dailyHours = parseFloat(document.getElementById('dailyHours').value) || 0;
             const safetyCost = parseFloat(document.getElementById('safetyCost').value) || 0;
             const sellMode = purpose === '판매용';
             const installCost = capacity * unitPrice;
@@ -869,9 +1016,11 @@
                 selfInvestment = 0;
             }
             const investmentRows = [
-                { label: '설치비용', value: formatCurrency(installCost) },
-                { label: '계통연계비', value: formatCurrency(connectionFee) }
+                { label: '설치비용', value: formatCurrency(installCost) }
             ];
+            if (connectionFee > 0) {
+                investmentRows.push({ label: '계통연계비', value: formatCurrency(connectionFee) });
+            }
             if (selectedMethod === 'B') {
                 investmentRows.push({ label: '보조금액', value: formatCurrency(grantAmount) });
                 investmentRows.push({ label: 'REMS 보조금', value: formatCurrency(remsAmount) });
@@ -987,14 +1136,4 @@
                     <td>${result.roi.toFixed(1)}%</td>
                 `;
                 tableBody.appendChild(row);
-            });
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            updateInsuranceFee();
-            updateElectricityPrice();
-            updateModeUI();
-        });
-    </script>
-</body>
-</html>
+            });\n        }\n\n        function printSolar() {\n            if (document.getElementById('results').classList.contains('hidden')) {\n                alert('먼저 계산을 수행해주세요.');\n                return;\n            }\n\n            const now = new Date();\n            const dateStr = now.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });\n            const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });\n            const printDate = dateStr + ' ' + timeStr;\n\n            const capacity = parseFloat(document.getElementById('capacity').value) || 0;\n            const purpose = document.querySelector('input[name=\"purpose\"]:checked').value;\n            const location = document.querySelector('input[name=\"location\"]:checked').value;\n            const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;\n            const dailyHours = parseFloat(document.getElementById('dailyHours').value) || 0;\n            const connectionFee = purpose === '판매용' ? (parseFloat(document.getElementById('connectionFee').value) || 0) : 0;\n\n            let priceLabel = '';\n            let priceValue = '';\n            if (purpose === '판매용') {\n                priceLabel = 'SMP 단가';\n                priceValue = (parseFloat(document.getElementById('smpPrice').value) || 0).toLocaleString('ko-KR');\n            } else {\n                priceLabel = '한전요금단가';\n                priceValue = (parseFloat(document.getElementById('electricityPrice').value) || 0).toLocaleString('ko-KR');\n            }\n\n            const methodNames = { 'A': '자기자본 투자', 'B': '2026 건물지원사업', 'C': '무자본 팩토링' };\n            const breakEven = document.getElementById('breakEven').textContent;\n            const totalProfit = document.getElementById('totalProfit').textContent;\n            const roi = document.getElementById('roi').textContent;\n            const avgProfit = document.getElementById('avgProfit').textContent;\n            const selfInvest = document.getElementById('selfInvestment').textContent;\n            const financeCost = document.getElementById('totalFinanceCost').textContent;\n            const profitExcluding = document.getElementById('profitExcludingFinance').textContent;\n\n            let printHTML = `\n                <div style=\"font-family: 'Segoe UI', Arial, sans-serif; color: #333; line-height: 1.6;\">\n                    <div style=\"text-align: center; margin-bottom: 30px; border-bottom: 3px solid #667eea; padding-bottom: 20px;\">\n                        <h1 style=\"margin: 0 0 10px 0; color: #667eea; font-size: 28px;\">☀️ 태양광 경제성 분석 결과</h1>\n                        <p style=\"margin: 0; color: #666; font-size: 14px;\">출력일자: ${printDate}</p>\n                    </div>\n\n                    <div style=\"margin-bottom: 25px; page-break-inside: avoid;\">\n                        <h2 style=\"color: #667eea; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 15px;\">📝 입력 정보 요약</h2>\n                        <table style=\"width: 100%; border-collapse: collapse; font-size: 13px;\">\n                            <tr style=\"background: #f5f5f5;\">\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd; font-weight: 600; width: 30%;\">설치 유형</td>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd;\">${location}</td>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd; font-weight: 600; width: 30%;\">설치 용량</td>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd;\">${capacity.toLocaleString('ko-KR')} kW</td>\n                            </tr>\n                            <tr>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd; font-weight: 600;\">목적</td>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd;\">${purpose}</td>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd; font-weight: 600;\">투자 방식</td>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd;\">${methodNames[selectedMethod]}</td>\n                            </tr>\n                            <tr style=\"background: #f5f5f5;\">\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd; font-weight: 600;\">설치 단가</td>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd;\">${(unitPrice).toLocaleString('ko-KR')} 원/kW</td>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd; font-weight: 600;\">일일 발전시간</td>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd;\">${dailyHours.toLocaleString('ko-KR')} 시간</td>\n                            </tr>\n                            <tr>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd; font-weight: 600;\">${priceLabel}</td>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd;\">${priceValue} 원/kWh</td>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd;\"></td>\n                                <td style=\"padding: 8px 12px; border: 1px solid #ddd;\"></td>\n                            </tr>\n                        </table>\n                    </div>\n\n                    <div style=\"margin-bottom: 25px; page-break-inside: avoid;\">\n                        <h2 style=\"color: #667eea; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 15px;\">💰 투자금액 상세</h2>\n                        <div id=\"printInvestment\" style=\"font-size: 13px;\"></div>\n                    </div>\n\n                    <div style=\"margin-bottom: 25px; page-break-inside: avoid;\">\n                        <h2 style=\"color: #667eea; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 15px;\">📊 요약 결과</h2>\n                        <div style=\"display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; font-size: 13px;\">\n                            <div style=\"background: #f9f9f9; padding: 12px; border: 1px solid #ddd; border-radius: 5px;\">\n                                <div style=\"font-weight: 600; color: #667eea; margin-bottom: 5px;\">손익분기점</div>\n                                <div style=\"font-size: 18px; font-weight: bold;\">${breakEven}</div>\n                            </div>\n                            <div style=\"background: #f9f9f9; padding: 12px; border: 1px solid #ddd; border-radius: 5px;\">\n                                <div style=\"font-weight: 600; color: #667eea; margin-bottom: 5px;\">20년 총 수익</div>\n                                <div style=\"font-size: 16px; font-weight: bold;\">${totalProfit}</div>\n                            </div>\n                            <div style=\"background: #f9f9f9; padding: 12px; border: 1px solid #ddd; border-radius: 5px;\">\n                                <div style=\"font-weight: 600; color: #667eea; margin-bottom: 5px;\">ROI</div>\n                                <div style=\"font-size: 18px; font-weight: bold;\">${roi}%</div>\n                            </div>\n                            <div style=\"background: #f9f9f9; padding: 12px; border: 1px solid #ddd; border-radius: 5px;\">\n                                <div style=\"font-weight: 600; color: #667eea; margin-bottom: 5px;\">연평균 수익</div>\n                                <div style=\"font-size: 16px; font-weight: bold;\">${avgProfit}</div>\n                            </div>\n                        </div>\n                    </div>\n\n                    <div style=\"margin-bottom: 25px; page-break-inside: avoid;\">\n                        <h2 style=\"color: #667eea; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 15px;\">📋 연도별 상세 분석</h2>\n                        <table style=\"width: 100%; border-collapse: collapse; font-size: 11px;\">\n                            <thead>\n                                <tr style=\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;\">\n                                    <th style=\"padding: 8px 6px; border: 1px solid #ddd; text-align: left; font-weight: 600;\">연도</th>\n                                    <th style=\"padding: 8px 6px; border: 1px solid #ddd; text-align: left; font-weight: 600;\">용량(kW)</th>\n                                    <th style=\"padding: 8px 6px; border: 1px solid #ddd; text-align: left; font-weight: 600;\">발전량(kWh)</th>\n                                    <th style=\"padding: 8px 6px; border: 1px solid #ddd; text-align: left; font-weight: 600;\">발전수익(원)</th>\n                                    <th style=\"padding: 8px 6px; border: 1px solid #ddd; text-align: left; font-weight: 600;\">원리금(원)</th>\n                                    <th style=\"padding: 8px 6px; border: 1px solid #ddd; text-align: left; font-weight: 600;\">순수익(원)</th>\n                                    <th style=\"padding: 8px 6px; border: 1px solid #ddd; text-align: left; font-weight: 600;\">누적순수익(원)</th>\n                                    <th style=\"padding: 8px 6px; border: 1px solid #ddd; text-align: left; font-weight: 600;\">ROI(%)</th>\n                                </tr>\n                            </thead>\n                            <tbody id=\"printTableBody\"></tbody>\n                        </table>\n                    </div>\n                </div>\n            `;\n\n            const printPreview = document.getElementById('printPreview');\n            printPreview.innerHTML = printHTML;\n\n            const tableBody = document.getElementById('printTableBody');\n            const originalTableBody = document.getElementById('tableBody');\n            tableBody.innerHTML = '';\n            originalTableBody.querySelectorAll('tr').forEach(row => {\n                const newRow = row.cloneNode(true);\n                if (row.classList.contains('break-even')) {\n                    newRow.style.background = '#f0f0f0';\n                    newRow.style.fontWeight = 'bold';\n                }\n                tableBody.appendChild(newRow);\n            });\n\n            const investmentBreakdown = document.getElementById('investmentBreakdown');\n            let investHTML = '<table style=\"width: 100%; border-collapse: collapse; font-size: 13px;\">';\n            investmentBreakdown.querySelectorAll('.breakdown-item').forEach(item => {\n                const label = item.querySelector('.breakdown-label').textContent;\n                const value = item.querySelector('.breakdown-value').textContent;\n                investHTML += `<tr style=\"border-bottom: 1px solid #ddd;\"><td style=\"padding: 8px 12px; font-weight: 600; width: 50%;\">${label}</td><td style=\"padding: 8px 12px; text-align: right;\">${value}</td></tr>`;\n            });\n            investHTML += '</table>';\n            document.getElementById('printInvestment').innerHTML = investHTML;\n\n            setTimeout(() => {\n                window.print();\n            }, 100);\n        }\n\n        document.addEventListener('DOMContentLoaded', function() {\n            updateInsuranceFee();\n            updateElectricityPrice();\n            updateModeUI();\n        });\n    </script>\n</body>\n</html>
