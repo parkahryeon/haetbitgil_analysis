@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>태양광 경제성 분석기</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -265,6 +267,41 @@
             transform: translateY(0);
         }
 
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .print-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .print-section {
+            display: none;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            margin-top: 30px;
+        }
+
+        .print-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .print-info {
+            background: #e8f5e9;
+            border: 1px solid #c8e6c9;
+            color: #256029;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
         .method-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -343,12 +380,66 @@
                 grid-template-columns: 1fr;
             }
 
+            .button-group {
+                grid-template-columns: 1fr;
+            }
+
             .header h1 {
                 font-size: 2rem;
             }
 
             .result-grid {
                 grid-template-columns: 1fr;
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            body * {
+                visibility: hidden;
+            }
+
+            #printSection, #printSection * {
+                visibility: visible;
+            }
+
+            #printSection {
+                display: block !important;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+            }
+
+            .print-section {
+                box-shadow: none;
+                border-radius: 0;
+                margin: 0;
+                padding: 0;
+            }
+
+            .print-section table {
+                width: 100%;
+                page-break-inside: auto;
+            }
+
+            .print-section tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+
+            .print-section th, .print-section td {
+                padding: 8px 10px;
             }
         }
     </style>
@@ -575,7 +666,10 @@
                         <input type="number" id="safetyCost" min="0" value="1200000">
                     </div>
 
-                    <button type="button" class="calculate-btn" onclick="calculateSolar()">계산하기</button>
+                    <div class="button-group no-print">
+                        <button type="button" class="calculate-btn" onclick="calculateSolar()">계산하기</button>
+                        <button id="savePdfBtn" type="button" class="calculate-btn print-btn" onclick="printSolar()">📄 PDF 저장</button>
+                    </div>
                 </form>
             </div>
 
@@ -622,9 +716,11 @@
                     </div>
                 </div>
             </div>
+
+            <div id="printSection" class="print-section hidden print-only"></div>
         </div>
 
-        <div class="card">
+        <div class="card no-print">
             <h2>📋 연도별 상세 분석</h2>
             <div class="table-container">
                 <table id="resultsTable">
@@ -993,6 +1089,118 @@
                 `;
                 tableBody.appendChild(row);
             });
+        }
+
+        async function printSolar() {
+            const resultsPanel = document.getElementById('results');
+            if (resultsPanel.classList.contains('hidden')) {
+                alert('먼저 계산을 수행해주세요.');
+                return;
+            }
+
+            const button = document.getElementById('savePdfBtn');
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = '저장 중...';
+
+            try {
+                const now = new Date();
+                const printDate = now.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                const fileDate = now.toISOString().slice(0, 10).replace(/-/g, '');
+                const fileName = `태양광경제성분석_${fileDate}.pdf`;
+
+                const location = document.querySelector('input[name="location"]:checked').value;
+                const capacity = parseFloat(document.getElementById('capacity').value) || 0;
+                const purpose = document.querySelector('input[name="purpose"]:checked').value;
+                const methodNames = { A: '자기자본 투자', B: '2026 건물지원사업', C: '무자본 팩토링' };
+                const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
+                const dailyHours = parseFloat(document.getElementById('dailyHours').value) || 0;
+                const electricityPrice = parseFloat(document.getElementById('electricityPrice').value) || 0;
+                const smpPrice = parseFloat(document.getElementById('smpPrice').value) || 0;
+                const priceLabel = purpose === '판매용' ? 'SMP 단가' : '한전요금단가';
+                const priceValue = purpose === '판매용' ? `${smpPrice.toLocaleString('ko-KR')}원` : `${electricityPrice.toLocaleString('ko-KR')}원`;
+                const currentMethod = selectedMethod || 'A';
+
+                let investmentHtml = '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                document.querySelectorAll('#investmentBreakdown .breakdown-item').forEach(item => {
+                    const label = item.querySelector('.breakdown-label').textContent;
+                    const value = item.querySelector('.breakdown-value').textContent;
+                    investmentHtml += `<tr><td style="padding:8px; border:1px solid #ddd; font-weight:600; width:40%;">${label}</td><td style="padding:8px; border:1px solid #ddd; text-align:right;">${value}</td></tr>`;
+                });
+                investmentHtml += '</table>';
+
+                let yearTableHtml = '<table style="width:100%; border-collapse:collapse; font-size:11px;">';
+                yearTableHtml += '<thead><tr style="background:#2f4d91; color:white;"><th style="padding:8px; border:1px solid #ddd;">연도</th><th style="padding:8px; border:1px solid #ddd;">용량(kW)</th><th style="padding:8px; border:1px solid #ddd;">발전량(kWh)</th><th style="padding:8px; border:1px solid #ddd;">발전수익(원)</th><th style="padding:8px; border:1px solid #ddd;">원리금/이자(원)</th><th style="padding:8px; border:1px solid #ddd;">순수익(원)</th></tr></thead><tbody>';
+                document.querySelectorAll('#tableBody tr').forEach(row => {
+                    const cells = Array.from(row.children).slice(0, 6).map(cell => `<td style="padding:8px; border:1px solid #ddd;">${cell.innerHTML}</td>`).join('');
+                    const rowStyle = row.classList.contains('break-even') ? 'background:#fff3cd;' : '';
+                    yearTableHtml += `<tr style="${rowStyle}">${cells}</tr>`;
+                });
+                yearTableHtml += '</tbody></table>';
+
+                const printSection = document.getElementById('printSection');
+                printSection.style.position = 'absolute';
+                printSection.style.left = '-9999px';
+                printSection.style.top = '0';
+                printSection.style.display = 'block';
+                printSection.style.width = '1200px';
+                printSection.style.background = '#ffffff';
+                printSection.innerHTML = `
+                    <div style="width:1200px; padding:40px; background:#ffffff; color:#333; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                        <div style="text-align:center; margin-bottom:32px;">
+                            <div style="font-size:30px; font-weight:700; color:#2f4d91;">☀️ 태양광 경제성 분석 결과</div>
+                            <div style="margin-top:8px; color:#555;">출력일자: ${printDate}</div>
+                        </div>
+                        <div style="margin-bottom:24px;">
+                            <div style="font-size:18px; font-weight:700; margin-bottom:12px; color:#2f4d91;">📝 입력 정보 요약</div>
+                            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                                <tr><td style="padding:10px; border:1px solid #ddd; font-weight:700; width:28%;">설치 유형</td><td style="padding:10px; border:1px solid #ddd;">${location}</td><td style="padding:10px; border:1px solid #ddd; font-weight:700; width:28%;">설치 용량</td><td style="padding:10px; border:1px solid #ddd;">${capacity.toLocaleString('ko-KR')} kW</td></tr>
+                                <tr style="background:#f7f9ff;"><td style="padding:10px; border:1px solid #ddd; font-weight:700;">목적</td><td style="padding:10px; border:1px solid #ddd;">${purpose}</td><td style="padding:10px; border:1px solid #ddd; font-weight:700;">투자 방식</td><td style="padding:10px; border:1px solid #ddd;">${methodNames[currentMethod]}</td></tr>
+                                <tr><td style="padding:10px; border:1px solid #ddd; font-weight:700;">설치 단가</td><td style="padding:10px; border:1px solid #ddd;">${unitPrice.toLocaleString('ko-KR')} 원/kW</td><td style="padding:10px; border:1px solid #ddd; font-weight:700;">일일 발전시간</td><td style="padding:10px; border:1px solid #ddd;">${dailyHours.toLocaleString('ko-KR')} 시간</td></tr>
+                                <tr style="background:#f7f9ff;"><td style="padding:10px; border:1px solid #ddd; font-weight:700;">${priceLabel}</td><td style="padding:10px; border:1px solid #ddd;">${priceValue}</td><td style="padding:10px; border:1px solid #ddd;"></td><td style="padding:10px; border:1px solid #ddd;"></td></tr>
+                            </table>
+                        </div>
+                        <div style="margin-bottom:24px;"><div style="font-size:18px; font-weight:700; margin-bottom:12px; color:#2f4d91;">💰 투자금액 상세</div>${investmentHtml}</div>
+                        <div><div style="font-size:18px; font-weight:700; margin-bottom:12px; color:#2f4d91;">📋 연도별 상세 분석</div>${yearTableHtml}</div>
+                    </div>
+                `;
+
+                await new Promise(resolve => setTimeout(resolve, 300));
+                const canvas = await html2canvas(printSection, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const margin = 10;
+                const maxWidth = pageWidth - margin * 2;
+                const maxHeight = pageHeight - margin * 2;
+                const originalWidth = canvas.width;
+                const originalHeight = canvas.height;
+                const ratioWidth = maxWidth / originalWidth;
+                const ratioHeight = maxHeight / originalHeight;
+                const scale = Math.min(ratioWidth, ratioHeight, 1);
+                const imgWidth = originalWidth * scale;
+                const imgHeight = originalHeight * scale;
+                const xPos = (pageWidth - imgWidth) / 2;
+                const yPos = margin;
+
+                pdf.addImage(imgData, 'PNG', xPos, yPos, imgWidth, imgHeight);
+                pdf.save(fileName);
+            } catch (error) {
+                console.error(error);
+                alert('PDF 저장 중 오류가 발생했습니다. 콘솔을 확인해주세요.');
+            } finally {
+                const printSection = document.getElementById('printSection');
+                printSection.style.display = 'none';
+                button.disabled = false;
+                button.textContent = originalText;
+            }
         }
 
         document.addEventListener('DOMContentLoaded', function() {
