@@ -343,6 +343,40 @@
             margin-top: 20px;
         }
 
+        .sub-section {
+            padding: 15px;
+            border-radius: 10px;
+            background: #f9f9f9;
+            margin-top: 15px;
+            display: block;
+        }
+
+        .sub-section.hidden {
+            display: none;
+        }
+
+        .tab-btn {
+            padding: 12px 20px;
+            border: 2px solid #ddd;
+            background: white;
+            color: #333;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .tab-btn:hover {
+            border-color: #667eea;
+        }
+
         .warning-box {
             background: #fff3cd;
             border: 1px solid #ffeeba;
@@ -459,8 +493,8 @@
                     <p>기본 투자 방식. 대출을 선택하면 원리금균등상환 방식이 적용됩니다.</p>
                 </div>
                 <div class="method-card" id="methodB" onclick="selectInvestmentMethod('B')">
-                    <h3>B. 2026 건물지원사업</h3>
-                    <p>자가소비 목적만 지원 가능. 2026년 보조금 계산과 REMS 연계비용 지원 포함.</p>
+                    <h3>B. 정부지원사업</h3>
+                    <p>정부 보조금(B-1) 또는 저금리 융자(B-2) 지원 방식 선택 가능.</p>
                 </div>
                 <div class="method-card" id="methodC" onclick="selectInvestmentMethod('C')">
                     <h3>C. 무자본 팩토링</h3>
@@ -497,49 +531,76 @@
             </div>
 
             <div id="modeBSection" class="mode-section hidden">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>신청자 유형</label>
-                        <select id="applicantType" onchange="updateModeUI()">
-                            <option value="general">일반</option>
-                            <option value="farm">축사·축산시설</option>
-                            <option value="re100">RE100·산단·공장</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>REMS 연계비용 보조금</label>
-                        <div class="radio-group">
-                            <label class="radio-option" onclick="toggleRemsSupport(true)"><input type="radio" name="remsSupport" value="true"> 적용</label>
-                            <label class="radio-option" onclick="toggleRemsSupport(false)"><input type="radio" name="remsSupport" value="false" checked> 미적용</label>
-                        </div>
+                <div class="form-group" style="margin-bottom: 25px;">
+                    <label>정부지원사업 유형 선택</label>
+                    <div class="tab-buttons" style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button type="button" class="tab-btn active" id="tabB1" onclick="selectBSubMethod('B1')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;">B-1. 건물지원사업 (보조금)</button>
+                        <button type="button" class="tab-btn" id="tabB2" onclick="selectBSubMethod('B2')" style="flex: 1; padding: 12px; border: 2px solid #ddd; background: white; color: #333; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;">B-2. 금융지원사업 (저금리 융자)</button>
                     </div>
                 </div>
-                <div id="grantWarning" class="warning-box hidden">
-                    건물지원사업은 자가소비 목적만 지원 가능합니다.
-                </div>
-                <div class="form-group">
-                    <label><input type="checkbox" id="loanUsedB" onchange="updateLoanVisibility()"> 자부담에 대한 대출 사용</label>
-                </div>
-                <div id="loanSectionB" class="hidden">
+
+                <!-- B-1: 건물지원사업 (보조금) -->
+                <div id="modeB1SubSection" class="sub-section">
                     <div class="form-row">
                         <div class="form-group">
-                            <label>대출 원금 (원)</label>
-                            <input type="number" id="loanPrincipalB" min="0" value="0">
+                            <label>신청자 유형</label>
+                            <select id="applicantTypeB1" onchange="onApplicantTypeB1Change()">
+                                <option value="general">일반</option>
+                                <option value="farm">축사·축산시설</option>
+                                <option value="re100">RE100·산단·공장</option>
+                                <option value="school">학교 RE100</option>
+                                <option value="market">전통시장</option>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label>연 이자율 (%)</label>
-                            <input type="number" id="loanRateB" min="0" step="0.1" value="6">
+                            <label>보조금 단가 (원/kW)</label>
+                            <input type="number" id="subsidyRateB1" min="0" value="525000" onchange="updateModeUI()" oninput="markSubsidyRateManual()">
+                        </div>
+                    </div>
+                    <div id="grantWarningB1" class="warning-box hidden" style="margin-bottom: 15px;">
+                        건물지원사업(B-1)은 자가소비 목적만 지원 가능합니다.
+                    </div>
+                </div>
+
+                <!-- B-2: 금융지원사업 (저금리 융자) -->
+                <div id="modeB2SubSection" class="sub-section hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>신청자 유형</label>
+                            <select id="applicantTypeB2" onchange="onApplicantTypeB2Change()">
+                                <option value="sme">중소기업·개인 (최대 80%)</option>
+                                <option value="mid">중견기업·공공기관 (최대 75%)</option>
+                                <option value="large">대기업 (최대 45%)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>융자 지원비율 (%)</label>
+                            <input type="number" id="financeRatioB2" min="0" max="100" value="80" onchange="onFinanceRatioB2Change()">
                         </div>
                     </div>
                     <div class="form-row">
+                        <div class="form-group">
+                            <label>융자금액 (원)</label>
+                            <input type="number" id="loanAmountB2" min="0" oninput="markLoanAmountManual()">
+                        </div>
+                        <div class="form-group">
+                            <label>자부담금액 (원)</label>
+                            <input type="number" id="selfAmountB2" min="0" class="auto-calc" readonly>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>적용 금리 (연 %)</label>
+                            <input type="number" id="financeRateB2" min="0" step="0.1" value="3.5">
+                        </div>
                         <div class="form-group">
                             <label>대출 기간 (년)</label>
-                            <input type="number" id="loanTermB" min="1" value="10">
+                            <input type="number" id="financeTermB2" min="1" value="10">
                         </div>
-                        <div class="form-group">
-                            <label>거치 기간 (년)</label>
-                            <input type="number" id="loanGraceB" min="0" value="0">
-                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>거치 기간 (년)</label>
+                        <input type="number" id="financeGraceB2" min="0" value="1">
                     </div>
                 </div>
             </div>
@@ -615,11 +676,11 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label>설치단가 (원/kW)</label>
-                            <input type="number" id="unitPrice" min="0" value="1000000">
+                            <input type="number" id="unitPrice" min="0" value="1000000" onchange="updateModeUI()">
                         </div>
                         <div class="form-group" id="connectionFeeGroup">
                             <label>계통연계비 (원)</label>
-                            <input type="number" id="connectionFee" min="0" value="5000000">
+                            <input type="number" id="connectionFee" min="0" value="5000000" onchange="updateModeUI()">
                         </div>
                     </div>
 
@@ -730,7 +791,7 @@
                             <th>용량 (kW)</th>
                             <th>발전량 (kWh)</th>
                             <th>발전수익 (원)</th>
-                            <th>원리금/이자 (원)</th>
+                            <th id="paymentHeader">원리금/이자 (원)</th>
                             <th>순수익 (원)</th>
                             <th>누적 순수익 (원)</th>
                             <th>투자대비수익률 (%)</th>
@@ -744,13 +805,110 @@
 
     <script>
         let selectedMethod = 'A';
+        let selectedSubMethod = 'B1';
+        let subsidyRateManualB1 = false;
+        let loanAmountManualB2 = false;
 
         function selectInvestmentMethod(method) {
             selectedMethod = method;
             document.querySelectorAll('.method-card').forEach(card => card.classList.remove('active'));
             document.getElementById('method' + method).classList.add('active');
             document.getElementById('investmentBreakdown').innerHTML = '';
+            if (method === 'B') {
+                selectedSubMethod = 'B1';
+            }
             updateModeUI();
+        }
+
+        function selectBSubMethod(subMethod) {
+            selectedSubMethod = subMethod;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('tab' + subMethod).classList.add('active');
+            document.getElementById('modeB1SubSection').classList.toggle('hidden', subMethod !== 'B1');
+            document.getElementById('modeB2SubSection').classList.toggle('hidden', subMethod !== 'B2');
+            document.getElementById('investmentBreakdown').innerHTML = '';
+            updateModeUI();
+        }
+
+        function updateFinanceRatio() {
+            const applicantType = document.getElementById('applicantTypeB2').value;
+            const ratioInput = document.getElementById('financeRatioB2');
+            if (applicantType === 'sme') {
+                ratioInput.max = '80';
+                ratioInput.value = '80';
+            } else if (applicantType === 'mid') {
+                ratioInput.max = '75';
+                ratioInput.value = '75';
+            } else if (applicantType === 'large') {
+                ratioInput.max = '45';
+                ratioInput.value = '45';
+            }
+        }
+
+        function getSubsidyRate(type, capacity) {
+            switch (type) {
+                case 'general':
+                case 're100':
+                    return capacity <= 200 ? 525000 : 414000;
+                case 'farm':
+                    return 571000;
+                case 'school':
+                case 'market':
+                    return 525000;
+                default:
+                    return 525000;
+            }
+        }
+
+        function updateSubsidyRateB1(force) {
+            if (subsidyRateManualB1 && !force) return;
+            const type = document.getElementById('applicantTypeB1').value;
+            const capacity = parseFloat(document.getElementById('capacity').value) || 0;
+            document.getElementById('subsidyRateB1').value = getSubsidyRate(type, capacity);
+        }
+
+        function onApplicantTypeB1Change() {
+            subsidyRateManualB1 = false;
+            updateSubsidyRateB1(true);
+            updateModeUI();
+        }
+
+        function markSubsidyRateManual() {
+            subsidyRateManualB1 = true;
+        }
+
+        function getCurrentTotalInvestment() {
+            const capacity = parseFloat(document.getElementById('capacity').value) || 0;
+            const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
+            const purpose = document.querySelector('input[name="purpose"]:checked').value;
+            const connectionFee = purpose === '판매용' ? (parseFloat(document.getElementById('connectionFee').value) || 0) : 0;
+            return capacity * unitPrice + connectionFee;
+        }
+
+        function updateB2Amounts() {
+            const totalInvestment = getCurrentTotalInvestment();
+            const ratio = parseFloat(document.getElementById('financeRatioB2').value) / 100 || 0;
+            if (!loanAmountManualB2) {
+                document.getElementById('loanAmountB2').value = Math.round(totalInvestment * ratio);
+            }
+            const loanAmount = parseFloat(document.getElementById('loanAmountB2').value) || 0;
+            document.getElementById('selfAmountB2').value = Math.round(totalInvestment - loanAmount);
+        }
+
+        function onApplicantTypeB2Change() {
+            updateFinanceRatio();
+            loanAmountManualB2 = false;
+            updateB2Amounts();
+        }
+
+        function onFinanceRatioB2Change() {
+            loanAmountManualB2 = false;
+            updateB2Amounts();
+        }
+
+        function markLoanAmountManual() {
+            loanAmountManualB2 = true;
+            updateB2Amounts();
         }
 
         function selectOption(element, group) {
@@ -791,32 +949,30 @@
             document.getElementById('modeCSection').classList.toggle('hidden', selectedMethod !== 'C');
             updateLoanVisibility();
             const purpose = document.querySelector('input[name="purpose"]:checked').value;
-            document.getElementById('grantWarning').classList.toggle('hidden', !(selectedMethod === 'B' && purpose === '판매용'));
+            document.getElementById('grantWarningB1').classList.toggle('hidden', !(selectedMethod === 'B' && selectedSubMethod === 'B1' && purpose === '판매용'));
             const insuranceGroup = document.getElementById('insuranceGroup');
             if (selectedMethod === 'C') {
                 insuranceGroup.classList.remove('hidden');
             } else {
                 insuranceGroup.classList.add('hidden');
             }
+            if (selectedMethod === 'B' && selectedSubMethod === 'B1') {
+                updateSubsidyRateB1();
+            }
+            if (selectedMethod === 'B' && selectedSubMethod === 'B2') {
+                updateB2Amounts();
+            }
         }
 
         function updateLoanVisibility() {
             const showA = selectedMethod === 'A' && document.getElementById('loanUsedA').checked;
-            const showB = selectedMethod === 'B' && document.getElementById('loanUsedB').checked;
             document.getElementById('loanSectionA').classList.toggle('hidden', !showA);
-            document.getElementById('loanSectionB').classList.toggle('hidden', !showB);
         }
 
         function updateElectricityPrice() {
             const planSelect = document.getElementById('electricityPlan');
             const priceInput = document.getElementById('electricityPrice');
             priceInput.value = planSelect.value;
-        }
-
-        function toggleRemsSupport(value) {
-            document.getElementsByName('remsSupport').forEach(radio => {
-                radio.checked = radio.value === String(value);
-            });
         }
 
         function updateInsuranceFee() {
@@ -845,31 +1001,6 @@
                 }
             }
             return schedule;
-        }
-
-        function calculateGrant(capacity, type, remsSelected, purpose) {
-            if (purpose === '판매용') {
-                return { grantAmount: 0, remsAmount: 0 };
-            }
-            const supportCapacity = Math.min(capacity, 1000);
-            let grantAmount = 0;
-            if (type === 'general') {
-                if (supportCapacity <= 200) {
-                    grantAmount = supportCapacity * 525000;
-                } else {
-                    grantAmount = 200 * 525000 + (supportCapacity - 200) * 414000;
-                }
-            } else if (type === 'farm') {
-                grantAmount = supportCapacity * 571000;
-            } else if (type === 're100') {
-                if (supportCapacity <= 200) {
-                    grantAmount = supportCapacity * 525000;
-                } else {
-                    grantAmount = 200 * 525000 + (supportCapacity - 200) * 414000;
-                }
-            }
-            const remsAmount = remsSelected ? 610000 : 0;
-            return { grantAmount, remsAmount };
         }
 
         function formatCurrency(value) {
@@ -906,7 +1037,6 @@
             let selfInvestment = 0;
             let totalFinanceCost = 0;
             let grantAmount = 0;
-            let remsAmount = 0;
             let selfCost = 0;
             let factoringGuarantee = 0;
             let factoringAnnualPrincipal = 0;
@@ -925,23 +1055,30 @@
                 selfInvestment = actualInvestment - loanPrincipal;
                 totalFinanceCost = totalInterestCost;
             } else if (selectedMethod === 'B') {
-                const applicantType = document.getElementById('applicantType').value;
-                const remsSelected = document.querySelector('input[name="remsSupport"]:checked').value === 'true';
-                const grantData = calculateGrant(capacity, applicantType, remsSelected, purpose);
-                grantAmount = grantData.grantAmount;
-                remsAmount = grantData.remsAmount;
-                selfCost = Math.max(installCost - grantAmount, 0);
-                actualInvestment = selfCost + connectionFee;
-                if (document.getElementById('loanUsedB').checked) {
-                    loanPrincipal = parseFloat(document.getElementById('loanPrincipalB').value) || 0;
-                    const loanRate = parseFloat(document.getElementById('loanRateB').value) || 0;
-                    const loanTerm = parseInt(document.getElementById('loanTermB').value) || 0;
-                    const loanGrace = parseInt(document.getElementById('loanGraceB').value) || 0;
-                    loanSchedule = calculateLoanSchedule(loanPrincipal, loanRate, loanTerm, loanGrace);
+                if (selectedSubMethod === 'B1') {
+                    // B-1: 건물지원사업 (보조금)
+                    const subsidyRate = parseFloat(document.getElementById('subsidyRateB1').value) || 525000;
+                    const subsidyAmount = capacity * subsidyRate;
+                    selfCost = Math.max(installCost - subsidyAmount, 0);
+                    actualInvestment = selfCost + connectionFee;
+                    grantAmount = subsidyAmount;
+                    selfInvestment = actualInvestment;
+                    totalFinanceCost = 0;
+                    loanSchedule = [];
+                } else if (selectedSubMethod === 'B2') {
+                    // B-2: 금융지원사업 (저금리 융자)
+                    const financeRate = parseFloat(document.getElementById('financeRateB2').value) || 0;
+                    const financeTerm = parseInt(document.getElementById('financeTermB2').value) || 0;
+                    const financeGrace = parseInt(document.getElementById('financeGraceB2').value) || 0;
+
+                    actualInvestment = installCost + connectionFee;
+                    loanPrincipal = parseFloat(document.getElementById('loanAmountB2').value) || 0;
+                    selfInvestment = actualInvestment - loanPrincipal;
+
+                    loanSchedule = calculateLoanSchedule(loanPrincipal, financeRate, financeTerm, financeGrace);
                     totalInterestCost = loanSchedule.reduce((sum, item) => sum + item.interest, 0);
+                    totalFinanceCost = totalInterestCost;
                 }
-                selfInvestment = actualInvestment - loanPrincipal;
-                totalFinanceCost = totalInterestCost;
             } else if (selectedMethod === 'C') {
                 const factoringInvestment = parseFloat(document.getElementById('factoringInvestment').value) || 0;
                 const guaranteeRate = parseFloat(document.getElementById('guaranteeRate').value) || 0;
@@ -970,28 +1107,38 @@
             const investmentRows = [
                 { label: '설치비용', value: formatCurrency(installCost) }
             ];
-            if (connectionFee > 0) {
-                investmentRows.push({ label: '계통연계비', value: formatCurrency(connectionFee) });
-            }
-            if (selectedMethod === 'B') {
+            if (selectedMethod === 'B' && selectedSubMethod === 'B1') {
+                // B-1: 건물지원사업
                 investmentRows.push({ label: '보조금액', value: formatCurrency(grantAmount) });
-                investmentRows.push({ label: 'REMS 보조금', value: formatCurrency(remsAmount) });
                 investmentRows.push({ label: '자부담액', value: formatCurrency(selfCost) });
+                if (connectionFee > 0) {
+                    investmentRows.push({ label: '계통연계비', value: formatCurrency(connectionFee) });
+                }
                 investmentRows.push({ label: '총 투자금액', value: formatCurrency(actualInvestment) });
-                investmentRows.push({ label: '자기자본', value: formatCurrency(selfInvestment) });
-                investmentRows.push({ label: '대출원금', value: formatCurrency(loanPrincipal) });
-                investmentRows.push({ label: '총 이자비용', value: formatCurrency(totalInterestCost) });
-            } else if (selectedMethod === 'A') {
-                investmentRows.push({ label: '총 투자금액', value: formatCurrency(actualInvestment) });
-                investmentRows.push({ label: '자기자본', value: formatCurrency(selfInvestment) });
-                investmentRows.push({ label: '대출원금', value: formatCurrency(loanPrincipal) });
-                investmentRows.push({ label: '총 이자비용', value: formatCurrency(totalInterestCost) });
-            } else if (selectedMethod === 'C') {
-                const totalInvestment = loanPrincipal + factoringGuarantee;
-                investmentRows.push({ label: '총 투자금액', value: formatCurrency(totalInvestment) });
-                investmentRows.push({ label: '보증보험료', value: formatCurrency(factoringGuarantee) });
-                investmentRows.push({ label: '연간 원금상환액', value: formatCurrency(factoringAnnualPrincipal) });
-                investmentRows.push({ label: '총 이자비용', value: formatCurrency(factoringTotalInterest) });
+            } else {
+                if (connectionFee > 0) {
+                    investmentRows.push({ label: '계통연계비', value: formatCurrency(connectionFee) });
+                }
+                if (selectedMethod === 'A') {
+                    investmentRows.push({ label: '총 투자금액', value: formatCurrency(actualInvestment) });
+                    investmentRows.push({ label: '자기자본', value: formatCurrency(selfInvestment) });
+                    investmentRows.push({ label: '대출원금', value: formatCurrency(loanPrincipal) });
+                    investmentRows.push({ label: '총 이자비용', value: formatCurrency(totalInterestCost) });
+                } else if (selectedMethod === 'B' && selectedSubMethod === 'B2') {
+                    // B-2: 금융지원사업
+                    investmentRows.push({ label: '총 투자금액', value: formatCurrency(actualInvestment) });
+                    investmentRows.push({ label: '융자금액', value: formatCurrency(loanPrincipal) });
+                    investmentRows.push({ label: '자부담금액', value: formatCurrency(selfInvestment) });
+                    const financeRate = parseFloat(document.getElementById('financeRateB2').value) || 0;
+                    investmentRows.push({ label: '적용 금리', value: financeRate.toFixed(2) + '%' });
+                    investmentRows.push({ label: '총 이자비용', value: formatCurrency(totalInterestCost) });
+                } else if (selectedMethod === 'C') {
+                    const totalInvestment = loanPrincipal + factoringGuarantee;
+                    investmentRows.push({ label: '총 투자금액', value: formatCurrency(totalInvestment) });
+                    investmentRows.push({ label: '보증보험료', value: formatCurrency(factoringGuarantee) });
+                    investmentRows.push({ label: '연간 원금상환액', value: formatCurrency(factoringAnnualPrincipal) });
+                    investmentRows.push({ label: '총 이자비용', value: formatCurrency(factoringTotalInterest) });
+                }
             }
             renderInvestmentBreakdown(investmentRows);
             const results = [];
@@ -1026,8 +1173,16 @@
                 annualRevenue *= warrantyFactor;
                 const currentSafetyCost = safetyCost * Math.pow(1.01, year - 1);
                 let paymentAmount = 0;
-                if (selectedMethod === 'A' || selectedMethod === 'B') {
+                if (selectedMethod === 'A') {
                     paymentAmount = loanSchedule[year - 1] ? loanSchedule[year - 1].payment : 0;
+                } else if (selectedMethod === 'B') {
+                    if (selectedSubMethod === 'B1') {
+                        // B-1: 보조금 지원, 원리금 없음
+                        paymentAmount = 0;
+                    } else if (selectedSubMethod === 'B2') {
+                        // B-2: 금융지원, 원리금 있음
+                        paymentAmount = loanSchedule[year - 1] ? loanSchedule[year - 1].payment : 0;
+                    }
                 } else if (selectedMethod === 'C') {
                     const factoringInvestment = parseFloat(document.getElementById('factoringInvestment').value) || 0;
                     const factoringRate = parseFloat(document.getElementById('factoringRate').value) || 0;
@@ -1082,12 +1237,17 @@
                     <td>${result.capacity.toFixed(1)}</td>
                     <td>${formatNumber(result.production)}</td>
                     <td>${formatCurrency(result.revenue)}</td>
-                    <td>${result.payment ? formatCurrency(result.payment) : '-'}</td>
+                    <td class="payment-cell">${result.payment ? formatCurrency(result.payment) : '-'}</td>
                     <td>${formatCurrency(result.netProfit)}</td>
                     <td>${formatCurrency(result.cumulative)}</td>
                     <td>${result.roi.toFixed(1)}%</td>
                 `;
                 tableBody.appendChild(row);
+            });
+            const showPaymentColumn = selectedMethod === 'C' || (selectedMethod === 'B' && selectedSubMethod === 'B2');
+            document.getElementById('paymentHeader').classList.toggle('hidden', !showPaymentColumn);
+            document.querySelectorAll('#tableBody .payment-cell').forEach(cell => {
+                cell.classList.toggle('hidden', !showPaymentColumn);
             });
         }
 
@@ -1112,7 +1272,7 @@
                 const location = document.querySelector('input[name="location"]:checked').value;
                 const capacity = parseFloat(document.getElementById('capacity').value) || 0;
                 const purpose = document.querySelector('input[name="purpose"]:checked').value;
-                const methodNames = { A: '자기자본 투자', B: '2026 건물지원사업', C: '무자본 팩토링' };
+                const methodNames = { A: '자기자본 투자', B1: 'B-1. 건물지원사업 (보조금)', B2: 'B-2. 금융지원사업 (저금리 융자)', C: '무자본 팩토링' };
                 const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
                 const dailyHours = parseFloat(document.getElementById('dailyHours').value) || 0;
                 const electricityPrice = parseFloat(document.getElementById('electricityPrice').value) || 0;
@@ -1206,6 +1366,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             updateInsuranceFee();
             updateElectricityPrice();
+            updateSubsidyRateB1();
+            updateB2Amounts();
             updateModeUI();
         });
     </script>
