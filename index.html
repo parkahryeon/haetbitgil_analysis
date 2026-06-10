@@ -680,7 +680,23 @@
                         </div>
                         <div class="form-group" id="connectionFeeGroup">
                             <label>계통연계비 (원)</label>
-                            <input type="number" id="connectionFee" min="0" value="5000000" onchange="updateModeUI()">
+                            <div class="form-row" style="margin-bottom: 10px;">
+                                <div>
+                                    <label>공급 전압</label>
+                                    <select id="voltageType" onchange="onConnectionFeeOptionChange()">
+                                        <option value="low">저압</option>
+                                        <option value="high" selected>고압 또는 특별고압</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label>공급 방식</label>
+                                    <select id="supplyMethod" onchange="onConnectionFeeOptionChange()">
+                                        <option value="overhead" selected>공중공급</option>
+                                        <option value="underground">지중공급</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <input type="number" id="connectionFee" min="0" value="2400000" oninput="markConnectionFeeManual()">
                         </div>
                     </div>
 
@@ -808,6 +824,7 @@
         let selectedSubMethod = 'B1';
         let subsidyRateManualB1 = false;
         let loanAmountManualB2 = false;
+        let connectionFeeManual = false;
 
         function selectInvestmentMethod(method) {
             selectedMethod = method;
@@ -875,6 +892,38 @@
 
         function markSubsidyRateManual() {
             subsidyRateManualB1 = true;
+        }
+
+        function getConnectionFee(capacity, voltageType, supplyMethod) {
+            if (voltageType === 'low') {
+                if (capacity <= 5) {
+                    return supplyMethod === 'underground' ? 588000 : 306000;
+                }
+                const extra = capacity - 5;
+                return supplyMethod === 'underground'
+                    ? 588000 + extra * 141000
+                    : 306000 + extra * 121000;
+            }
+            return supplyMethod === 'underground' ? capacity * 50000 : capacity * 24000;
+        }
+
+        function updateConnectionFee(force) {
+            if (connectionFeeManual && !force) return;
+            const capacity = parseFloat(document.getElementById('capacity').value) || 0;
+            const voltageType = document.getElementById('voltageType').value;
+            const supplyMethod = document.getElementById('supplyMethod').value;
+            document.getElementById('connectionFee').value = Math.round(getConnectionFee(capacity, voltageType, supplyMethod));
+        }
+
+        function onConnectionFeeOptionChange() {
+            connectionFeeManual = false;
+            updateConnectionFee(true);
+            updateModeUI();
+        }
+
+        function markConnectionFeeManual() {
+            connectionFeeManual = true;
+            updateModeUI();
         }
 
         function getCurrentTotalInvestment() {
@@ -948,6 +997,7 @@
             document.getElementById('modeBSection').classList.toggle('hidden', selectedMethod !== 'B');
             document.getElementById('modeCSection').classList.toggle('hidden', selectedMethod !== 'C');
             updateLoanVisibility();
+            updateConnectionFee();
             const purpose = document.querySelector('input[name="purpose"]:checked').value;
             document.getElementById('grantWarningB1').classList.toggle('hidden', !(selectedMethod === 'B' && selectedSubMethod === 'B1' && purpose === '판매용'));
             const insuranceGroup = document.getElementById('insuranceGroup');
@@ -1364,6 +1414,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            updateConnectionFee();
             updateInsuranceFee();
             updateElectricityPrice();
             updateSubsidyRateB1();
