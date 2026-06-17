@@ -777,13 +777,18 @@
                         <div class="unit">원</div>
                     </div>
                     <div class="result-card">
-                        <h3>실제 자기투자금액</h3>
+                        <h3>총 대출원금</h3>
                         <div class="value" id="selfInvestment">-</div>
                         <div class="unit">원</div>
                     </div>
                     <div class="result-card">
-                        <h3>총 금융비용</h3>
+                        <h3>20년 총 이자비용</h3>
                         <div class="value" id="totalFinanceCost">-</div>
+                        <div class="unit">원</div>
+                    </div>
+                    <div class="result-card">
+                        <h3>20년 총 납입액</h3>
+                        <div class="value" id="totalLoanPayment">-</div>
                         <div class="unit">원</div>
                     </div>
                     <div class="result-card">
@@ -807,7 +812,10 @@
                             <th>용량 (kW)</th>
                             <th>발전량 (kWh)</th>
                             <th>발전수익 (원)</th>
-                            <th id="paymentHeader">원리금/이자 (원)</th>
+                            <th id="principalHeader" class="payment-col">원금상환액 (원)</th>
+                            <th id="interestColHeader" class="payment-col">이자 (원)</th>
+                            <th id="paymentHeader" class="payment-col">납입합계 (원)</th>
+                            <th id="remainingHeader" class="payment-col">잔여원금 (원)</th>
                             <th>순수익 (원)</th>
                             <th>누적 순수익 (원)</th>
                             <th>투자대비수익률 (%)</th>
@@ -1034,21 +1042,25 @@
             document.getElementById('insuranceFee').value = Math.round(insuranceFee);
         }
 
-        function calculateLoanSchedule(principal, rate, term, grace) {
+        function calculateLoanScheduleMonthly(principal, rate, term, grace) {
             const schedule = [];
-            const annualRate = rate / 100;
+            const monthlyRate = rate / 100 / 12;
+            const monthlyPrincipal = term > 0 ? principal / (term * 12) : 0;
+            const gracePeriodMonths = grace * 12;
             let outstanding = principal;
-            const principalPayment = term > 0 ? principal / term : 0;
             for (let year = 1; year <= grace + term; year++) {
-                if (year <= grace) {
-                    const interest = principal * annualRate;
-                    schedule.push({ payment: interest, interest, principal: 0, remaining: outstanding });
-                } else {
-                    const interest = outstanding * annualRate;
-                    const payment = principalPayment + interest;
-                    outstanding -= principalPayment;
-                    schedule.push({ payment, interest, principal: principalPayment, remaining: outstanding });
+                let annualPrincipal = 0, annualInterest = 0;
+                for (let m = 1; m <= 12; m++) {
+                    const absMonth = (year - 1) * 12 + m;
+                    if (absMonth <= gracePeriodMonths) {
+                        annualInterest += principal * monthlyRate;
+                    } else {
+                        annualInterest += outstanding * monthlyRate;
+                        annualPrincipal += monthlyPrincipal;
+                        outstanding -= monthlyPrincipal;
+                    }
                 }
+                schedule.push({ payment: annualPrincipal + annualInterest, interest: annualInterest, principal: annualPrincipal, remaining: outstanding });
             }
             return schedule;
         }
@@ -1084,6 +1096,7 @@
             let actualInvestment = 0;
             let loanPrincipal = 0;
             let totalInterestCost = 0;
+            let totalLoanPayment = 0;
             let selfInvestment = 0;
             let totalFinanceCost = 0;
             let grantAmount = 0;
@@ -1099,8 +1112,9 @@
                     const loanRate = parseFloat(document.getElementById('loanRateA').value) || 0;
                     const loanTerm = parseInt(document.getElementById('loanTermA').value) || 0;
                     const loanGrace = parseInt(document.getElementById('loanGraceA').value) || 0;
-                    loanSchedule = calculateLoanSchedule(loanPrincipal, loanRate, loanTerm, loanGrace);
+                    loanSchedule = calculateLoanScheduleMonthly(loanPrincipal, loanRate, loanTerm, loanGrace);
                     totalInterestCost = loanSchedule.reduce((sum, item) => sum + item.interest, 0);
+                    totalLoanPayment = loanSchedule.reduce((sum, item) => sum + item.payment, 0);
                 }
                 selfInvestment = actualInvestment - loanPrincipal;
                 totalFinanceCost = totalInterestCost;
@@ -1125,8 +1139,9 @@
                     loanPrincipal = parseFloat(document.getElementById('loanAmountB2').value) || 0;
                     selfInvestment = actualInvestment - loanPrincipal;
 
-                    loanSchedule = calculateLoanSchedule(loanPrincipal, financeRate, financeTerm, financeGrace);
+                    loanSchedule = calculateLoanScheduleMonthly(loanPrincipal, financeRate, financeTerm, financeGrace);
                     totalInterestCost = loanSchedule.reduce((sum, item) => sum + item.interest, 0);
+                    totalLoanPayment = loanSchedule.reduce((sum, item) => sum + item.payment, 0);
                     totalFinanceCost = totalInterestCost;
                 }
             } else if (selectedMethod === 'C') {
@@ -1151,6 +1166,7 @@
                     }
                 }
                 totalInterestCost = factoringTotalInterest;
+                totalLoanPayment = loanPrincipal + factoringTotalInterest;
                 totalFinanceCost = totalInterestCost;
                 selfInvestment = 0;
             }
@@ -1173,7 +1189,8 @@
                     investmentRows.push({ label: '총 투자금액', value: formatCurrency(actualInvestment) });
                     investmentRows.push({ label: '자기자본', value: formatCurrency(selfInvestment) });
                     investmentRows.push({ label: '대출원금', value: formatCurrency(loanPrincipal) });
-                    investmentRows.push({ label: '총 이자비용', value: formatCurrency(totalInterestCost) });
+                    investmentRows.push({ label: '20년 총 이자', value: formatCurrency(totalInterestCost) });
+                    investmentRows.push({ label: '20년 총 납입액', value: formatCurrency(totalLoanPayment) });
                 } else if (selectedMethod === 'B' && selectedSubMethod === 'B2') {
                     // B-2: 금융지원사업
                     investmentRows.push({ label: '총 투자금액', value: formatCurrency(actualInvestment) });
@@ -1181,13 +1198,15 @@
                     investmentRows.push({ label: '자부담금액', value: formatCurrency(selfInvestment) });
                     const financeRate = parseFloat(document.getElementById('financeRateB2').value) || 0;
                     investmentRows.push({ label: '적용 금리', value: financeRate.toFixed(2) + '%' });
-                    investmentRows.push({ label: '총 이자비용', value: formatCurrency(totalInterestCost) });
+                    investmentRows.push({ label: '20년 총 이자', value: formatCurrency(totalInterestCost) });
+                    investmentRows.push({ label: '20년 총 납입액', value: formatCurrency(totalLoanPayment) });
                 } else if (selectedMethod === 'C') {
                     const totalInvestment = loanPrincipal + factoringGuarantee;
                     investmentRows.push({ label: '총 투자금액', value: formatCurrency(totalInvestment) });
                     investmentRows.push({ label: '보증보험료', value: formatCurrency(factoringGuarantee) });
                     investmentRows.push({ label: '연간 원금상환액', value: formatCurrency(factoringAnnualPrincipal) });
-                    investmentRows.push({ label: '총 이자비용', value: formatCurrency(factoringTotalInterest) });
+                    investmentRows.push({ label: '20년 총 이자', value: formatCurrency(factoringTotalInterest) });
+                    investmentRows.push({ label: '20년 총 납입액', value: formatCurrency(totalLoanPayment) });
                 }
             }
             renderInvestmentBreakdown(investmentRows);
@@ -1222,31 +1241,42 @@
                 }
                 annualRevenue *= warrantyFactor;
                 const currentSafetyCost = safetyCost * Math.pow(1.01, year - 1);
-                let paymentAmount = 0;
+                let paymentAmount = 0, paymentInterest = 0, paymentPrincipal = 0, paymentRemaining = 0;
                 if (selectedMethod === 'A') {
-                    paymentAmount = loanSchedule[year - 1] ? loanSchedule[year - 1].payment : 0;
+                    const sched = loanSchedule[year - 1];
+                    if (sched) {
+                        paymentAmount = sched.payment;
+                        paymentInterest = sched.interest;
+                        paymentPrincipal = sched.principal;
+                        paymentRemaining = sched.remaining;
+                    }
                 } else if (selectedMethod === 'B') {
-                    if (selectedSubMethod === 'B1') {
-                        // B-1: 보조금 지원, 원리금 없음
-                        paymentAmount = 0;
-                    } else if (selectedSubMethod === 'B2') {
-                        // B-2: 금융지원, 원리금 있음
-                        paymentAmount = loanSchedule[year - 1] ? loanSchedule[year - 1].payment : 0;
+                    if (selectedSubMethod === 'B2') {
+                        const sched = loanSchedule[year - 1];
+                        if (sched) {
+                            paymentAmount = sched.payment;
+                            paymentInterest = sched.interest;
+                            paymentPrincipal = sched.principal;
+                            paymentRemaining = sched.remaining;
+                        }
                     }
                 } else if (selectedMethod === 'C') {
-                    const factoringInvestment = parseFloat(document.getElementById('factoringInvestment').value) || 0;
-                    const factoringRate = parseFloat(document.getElementById('factoringRate').value) || 0;
-                    const factoringGrace = parseInt(document.getElementById('factoringGrace').value) || 0;
-                    const factoringTerm = parseInt(document.getElementById('factoringTerm').value) || 0;
-                    const factoringAnnualPrincipalCalc = factoringInvestment / factoringTerm;
-                    if (year <= factoringGrace) {
-                        paymentAmount = factoringInvestment * (factoringRate / 100);
-                    } else if (year <= factoringGrace + factoringTerm) {
-                        const outstanding = factoringInvestment - factoringAnnualPrincipalCalc * (year - factoringGrace - 1);
-                        const interest = outstanding * (factoringRate / 100);
-                        paymentAmount = factoringAnnualPrincipalCalc + interest;
-                    } else {
-                        paymentAmount = 0;
+                    const fInv = parseFloat(document.getElementById('factoringInvestment').value) || 0;
+                    const fRate = parseFloat(document.getElementById('factoringRate').value) || 0;
+                    const fGrace = parseInt(document.getElementById('factoringGrace').value) || 0;
+                    const fTerm = parseInt(document.getElementById('factoringTerm').value) || 0;
+                    const fAnnualPrincipal = fTerm > 0 ? fInv / fTerm : 0;
+                    if (year <= fGrace) {
+                        paymentInterest = fInv * (fRate / 100);
+                        paymentPrincipal = 0;
+                        paymentRemaining = fInv;
+                        paymentAmount = paymentInterest;
+                    } else if (year <= fGrace + fTerm) {
+                        const prevRemaining = fInv - fAnnualPrincipal * (year - fGrace - 1);
+                        paymentInterest = prevRemaining * (fRate / 100);
+                        paymentPrincipal = fAnnualPrincipal;
+                        paymentRemaining = prevRemaining - fAnnualPrincipal;
+                        paymentAmount = paymentPrincipal + paymentInterest;
                     }
                 }
                 const netProfit = annualRevenue - currentSafetyCost - paymentAmount;
@@ -1258,6 +1288,9 @@
                     production,
                     revenue: annualRevenue,
                     payment: paymentAmount,
+                    interest: paymentInterest,
+                    principal: paymentPrincipal,
+                    remaining: paymentRemaining,
                     netProfit,
                     cumulative: cumulativeProfit,
                     roi: roiPercent
@@ -1272,8 +1305,9 @@
             document.getElementById('totalProfit').textContent = formatCurrency(results[results.length - 1].cumulative);
             document.getElementById('roi').textContent = results[results.length - 1].roi.toFixed(1);
             document.getElementById('avgProfit').textContent = formatCurrency(results[results.length - 1].cumulative / 20);
-            document.getElementById('selfInvestment').textContent = formatCurrency(selfInvestment);
+            document.getElementById('selfInvestment').textContent = formatCurrency(loanPrincipal);
             document.getElementById('totalFinanceCost').textContent = formatCurrency(totalFinanceCost);
+            document.getElementById('totalLoanPayment').textContent = formatCurrency(totalLoanPayment);
             document.getElementById('profitExcludingFinance').textContent = formatCurrency(results[results.length - 1].cumulative + totalFinanceCost);
             const tableBody = document.getElementById('tableBody');
             tableBody.innerHTML = '';
@@ -1287,17 +1321,21 @@
                     <td>${result.capacity.toFixed(1)}</td>
                     <td>${formatNumber(result.production)}</td>
                     <td>${formatCurrency(result.revenue)}</td>
-                    <td class="payment-cell">${result.payment ? formatCurrency(result.payment) : '-'}</td>
+                    <td class="payment-col">${result.principal ? formatCurrency(result.principal) : '-'}</td>
+                    <td class="payment-col">${result.interest ? formatCurrency(result.interest) : '-'}</td>
+                    <td class="payment-col">${result.payment ? formatCurrency(result.payment) : '-'}</td>
+                    <td class="payment-col">${result.remaining ? formatCurrency(result.remaining) : '-'}</td>
                     <td>${formatCurrency(result.netProfit)}</td>
                     <td>${formatCurrency(result.cumulative)}</td>
                     <td>${result.roi.toFixed(1)}%</td>
                 `;
                 tableBody.appendChild(row);
             });
-            const showPaymentColumn = selectedMethod === 'C' || (selectedMethod === 'B' && selectedSubMethod === 'B2');
-            document.getElementById('paymentHeader').classList.toggle('hidden', !showPaymentColumn);
-            document.querySelectorAll('#tableBody .payment-cell').forEach(cell => {
-                cell.classList.toggle('hidden', !showPaymentColumn);
+            const showPaymentColumn = selectedMethod === 'C' ||
+                (selectedMethod === 'B' && selectedSubMethod === 'B2') ||
+                (selectedMethod === 'A' && document.getElementById('loanUsedA').checked);
+            document.querySelectorAll('.payment-col').forEach(el => {
+                el.classList.toggle('hidden', !showPaymentColumn);
             });
         }
 
@@ -1339,10 +1377,11 @@
                 });
                 investmentHtml += '</table>';
 
+                const visibleHeaders = Array.from(document.querySelectorAll('#resultsTable thead th')).filter(th => !th.classList.contains('hidden'));
                 let yearTableHtml = '<table style="width:100%; border-collapse:collapse; font-size:11px;">';
-                yearTableHtml += '<thead><tr style="background:#2f4d91; color:white;"><th style="padding:8px; border:1px solid #ddd;">연도</th><th style="padding:8px; border:1px solid #ddd;">용량(kW)</th><th style="padding:8px; border:1px solid #ddd;">발전량(kWh)</th><th style="padding:8px; border:1px solid #ddd;">발전수익(원)</th><th style="padding:8px; border:1px solid #ddd;">원리금/이자(원)</th><th style="padding:8px; border:1px solid #ddd;">순수익(원)</th></tr></thead><tbody>';
+                yearTableHtml += '<thead><tr style="background:#2f4d91; color:white;">' + visibleHeaders.map(th => `<th style="padding:8px; border:1px solid #ddd;">${th.textContent}</th>`).join('') + '</tr></thead><tbody>';
                 document.querySelectorAll('#tableBody tr').forEach(row => {
-                    const cells = Array.from(row.children).slice(0, 6).map(cell => `<td style="padding:8px; border:1px solid #ddd;">${cell.innerHTML}</td>`).join('');
+                    const cells = Array.from(row.children).filter(cell => !cell.classList.contains('hidden')).map(cell => `<td style="padding:8px; border:1px solid #ddd;">${cell.innerHTML}</td>`).join('');
                     const rowStyle = row.classList.contains('break-even') ? 'background:#fff3cd;' : '';
                     yearTableHtml += `<tr style="${rowStyle}">${cells}</tr>`;
                 });
