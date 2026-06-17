@@ -812,10 +812,10 @@
                             <th>용량 (kW)</th>
                             <th>발전량 (kWh)</th>
                             <th>발전수익 (원)</th>
-                            <th id="principalHeader" class="payment-col">원금상환액 (원)</th>
-                            <th id="interestColHeader" class="payment-col">이자 (원)</th>
-                            <th id="paymentHeader" class="payment-col">납입합계 (원)</th>
-                            <th id="remainingHeader" class="payment-col">잔여원금 (원)</th>
+                            <th id="principalHeader" class="payment-col hidden">원금상환액 (원)</th>
+                            <th id="interestColHeader" class="payment-col hidden">이자 (원)</th>
+                            <th id="paymentHeader" class="payment-col hidden">납입합계 (원)</th>
+                            <th id="remainingHeader" class="payment-col hidden">잔여원금 (원)</th>
                             <th>순수익 (원)</th>
                             <th>누적 순수익 (원)</th>
                             <th>투자대비수익률 (%)</th>
@@ -1006,6 +1006,12 @@
             document.getElementById('modeCSection').classList.toggle('hidden', selectedMethod !== 'C');
             updateLoanVisibility();
             updateConnectionFee();
+            const showPaymentHeaders = selectedMethod === 'C' ||
+                (selectedMethod === 'B' && selectedSubMethod === 'B2') ||
+                (selectedMethod === 'A' && document.getElementById('loanUsedA').checked);
+            document.querySelectorAll('#resultsTable thead th.payment-col').forEach(th => {
+                th.classList.toggle('hidden', !showPaymentHeaders);
+            });
             const purpose = document.querySelector('input[name="purpose"]:checked').value;
             document.getElementById('grantWarningB1').classList.toggle('hidden', !(selectedMethod === 'B' && selectedSubMethod === 'B1' && purpose === '판매용'));
             const insuranceGroup = document.getElementById('insuranceGroup');
@@ -1025,6 +1031,11 @@
         function updateLoanVisibility() {
             const showA = selectedMethod === 'A' && document.getElementById('loanUsedA').checked;
             document.getElementById('loanSectionA').classList.toggle('hidden', !showA);
+            if (selectedMethod === 'A') {
+                document.querySelectorAll('#resultsTable thead th.payment-col').forEach(th => {
+                    th.classList.toggle('hidden', !showA);
+                });
+            }
         }
 
         function updateElectricityPrice() {
@@ -1099,6 +1110,7 @@
             let totalLoanPayment = 0;
             let selfInvestment = 0;
             let totalFinanceCost = 0;
+            let loanGraceYears = 0, loanTermYears = 0;
             let grantAmount = 0;
             let selfCost = 0;
             let factoringGuarantee = 0;
@@ -1112,6 +1124,8 @@
                     const loanRate = parseFloat(document.getElementById('loanRateA').value) || 0;
                     const loanTerm = parseInt(document.getElementById('loanTermA').value) || 0;
                     const loanGrace = parseInt(document.getElementById('loanGraceA').value) || 0;
+                    loanGraceYears = loanGrace;
+                    loanTermYears = loanTerm;
                     loanSchedule = calculateLoanScheduleMonthly(loanPrincipal, loanRate, loanTerm, loanGrace);
                     totalInterestCost = loanSchedule.reduce((sum, item) => sum + item.interest, 0);
                     totalLoanPayment = loanSchedule.reduce((sum, item) => sum + item.payment, 0);
@@ -1134,6 +1148,8 @@
                     const financeRate = parseFloat(document.getElementById('financeRateB2').value) || 0;
                     const financeTerm = parseInt(document.getElementById('financeTermB2').value) || 0;
                     const financeGrace = parseInt(document.getElementById('financeGraceB2').value) || 0;
+                    loanGraceYears = financeGrace;
+                    loanTermYears = financeTerm;
 
                     actualInvestment = installCost + connectionFee;
                     loanPrincipal = parseFloat(document.getElementById('loanAmountB2').value) || 0;
@@ -1242,23 +1258,21 @@
                 annualRevenue *= warrantyFactor;
                 const currentSafetyCost = safetyCost * Math.pow(1.01, year - 1);
                 let paymentAmount = 0, paymentInterest = 0, paymentPrincipal = 0, paymentRemaining = 0;
-                if (selectedMethod === 'A') {
+                let loanStatus = 'none'; // 'none' | 'grace' | 'repay' | 'done'
+                if ((selectedMethod === 'A' || (selectedMethod === 'B' && selectedSubMethod === 'B2')) && loanSchedule.length > 0) {
+                    if (year <= loanGraceYears) {
+                        loanStatus = 'grace';
+                    } else if (year <= loanGraceYears + loanTermYears) {
+                        loanStatus = 'repay';
+                    } else {
+                        loanStatus = 'done';
+                    }
                     const sched = loanSchedule[year - 1];
                     if (sched) {
                         paymentAmount = sched.payment;
                         paymentInterest = sched.interest;
                         paymentPrincipal = sched.principal;
                         paymentRemaining = sched.remaining;
-                    }
-                } else if (selectedMethod === 'B') {
-                    if (selectedSubMethod === 'B2') {
-                        const sched = loanSchedule[year - 1];
-                        if (sched) {
-                            paymentAmount = sched.payment;
-                            paymentInterest = sched.interest;
-                            paymentPrincipal = sched.principal;
-                            paymentRemaining = sched.remaining;
-                        }
                     }
                 } else if (selectedMethod === 'C') {
                     const fInv = parseFloat(document.getElementById('factoringInvestment').value) || 0;
@@ -1267,16 +1281,20 @@
                     const fTerm = parseInt(document.getElementById('factoringTerm').value) || 0;
                     const fAnnualPrincipal = fTerm > 0 ? fInv / fTerm : 0;
                     if (year <= fGrace) {
+                        loanStatus = 'grace';
                         paymentInterest = fInv * (fRate / 100);
                         paymentPrincipal = 0;
                         paymentRemaining = fInv;
                         paymentAmount = paymentInterest;
                     } else if (year <= fGrace + fTerm) {
+                        loanStatus = 'repay';
                         const prevRemaining = fInv - fAnnualPrincipal * (year - fGrace - 1);
                         paymentInterest = prevRemaining * (fRate / 100);
                         paymentPrincipal = fAnnualPrincipal;
                         paymentRemaining = prevRemaining - fAnnualPrincipal;
                         paymentAmount = paymentPrincipal + paymentInterest;
+                    } else {
+                        loanStatus = 'done';
                     }
                 }
                 const netProfit = annualRevenue - currentSafetyCost - paymentAmount;
@@ -1291,6 +1309,7 @@
                     interest: paymentInterest,
                     principal: paymentPrincipal,
                     remaining: paymentRemaining,
+                    loanStatus,
                     netProfit,
                     cumulative: cumulativeProfit,
                     roi: roiPercent
@@ -1316,15 +1335,16 @@
                 if (result.year === breakEvenYear) {
                     row.classList.add('break-even');
                 }
+                const ls = result.loanStatus;
                 row.innerHTML = `
                     <td>${result.year}</td>
                     <td>${result.capacity.toFixed(1)}</td>
                     <td>${formatNumber(result.production)}</td>
                     <td>${formatCurrency(result.revenue)}</td>
-                    <td class="payment-col">${result.principal ? formatCurrency(result.principal) : '-'}</td>
-                    <td class="payment-col">${result.interest ? formatCurrency(result.interest) : '-'}</td>
-                    <td class="payment-col">${result.payment ? formatCurrency(result.payment) : '-'}</td>
-                    <td class="payment-col">${result.remaining ? formatCurrency(result.remaining) : '-'}</td>
+                    <td class="payment-col">${ls === 'repay' ? formatCurrency(result.principal) : ls === 'done' ? '0원' : '-'}</td>
+                    <td class="payment-col">${ls === 'none' ? '-' : ls === 'done' ? '0원' : formatCurrency(result.interest)}</td>
+                    <td class="payment-col">${ls === 'none' ? '-' : ls === 'done' ? '0원' : formatCurrency(result.payment)}</td>
+                    <td class="payment-col">${ls === 'none' ? '-' : ls === 'done' ? '0원' : formatCurrency(Math.max(0, result.remaining))}</td>
                     <td>${formatCurrency(result.netProfit)}</td>
                     <td>${formatCurrency(result.cumulative)}</td>
                     <td>${result.roi.toFixed(1)}%</td>
