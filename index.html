@@ -736,8 +736,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label>안전관리자 비용 (원/년)</label>
-                        <input type="number" id="safetyCost" min="0" value="1200000">
+                        <label>안전관리자 비용 (원/월)</label>
+                        <input type="number" id="safetyCost" min="0" value="80000">
                     </div>
 
                     <div class="button-group no-print">
@@ -1246,7 +1246,7 @@
                 }
                 annualRevenue *= warrantyFactor;
                 totalRevenue += annualRevenue;
-                const currentSafetyCost = safetyCost * Math.pow(1.01, year - 1);
+                const currentSafetyCost = safetyCost * 12 * Math.pow(1.01, year - 1);
                 let paymentAmount = 0, paymentInterest = 0, paymentPrincipal = 0, paymentRemaining = 0;
                 let loanStatus = 'none'; // 'none' | 'grace' | 'repay' | 'done'
                 if ((selectedMethod === 'A' || (selectedMethod === 'B' && selectedSubMethod === 'B2')) && loanSchedule.length > 0) {
