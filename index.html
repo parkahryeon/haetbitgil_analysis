@@ -700,14 +700,22 @@
                         <input type="number" id="dailyHours" min="0" step="0.1" value="3.8">
                     </div>
 
-                    <div class="form-row" id="sellInputs">
-                        <div class="form-group">
-                            <label>SMP 단가 (원/kWh)</label>
-                            <input type="number" id="smpPrice" min="0" step="0.1" value="135.6">
+                    <div id="sellInputs">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>SMP 단가 (원/kWh)</label>
+                                <input type="number" id="smpPrice" min="0" step="0.1" value="135.6">
+                            </div>
+                            <div class="form-group">
+                                <label>REC 단가 (원/kWh)</label>
+                                <input type="number" id="recPrice" min="0" step="0.1" value="70">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>REC 배수 (배)</label>
-                            <input type="number" id="recMultiplier" min="0" step="0.1" value="1.5">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>REC 배수 (배)</label>
+                                <input type="number" id="recMultiplier" min="0" step="0.1" value="1.5">
+                            </div>
                         </div>
                     </div>
 
@@ -1221,9 +1229,10 @@
                 let annualRevenue = 0;
                 if (sellMode) {
                     const smpPrice = parseFloat(document.getElementById('smpPrice').value) || 0;
+                    const recPrice = parseFloat(document.getElementById('recPrice').value) || 0;
                     const recMultiplier = parseFloat(document.getElementById('recMultiplier').value) || 0;
                     const smpRevenue = production * smpPrice;
-                    const recRevenue = production * (smpPrice * recMultiplier - smpPrice);
+                    const recRevenue = production * recPrice * recMultiplier;
                     annualRevenue = smpRevenue + recRevenue;
                 } else {
                     const electricityPrice = parseFloat(document.getElementById('electricityPrice').value) || 0;
@@ -1365,8 +1374,12 @@
                 const dailyHours = parseFloat(document.getElementById('dailyHours').value) || 0;
                 const electricityPrice = parseFloat(document.getElementById('electricityPrice').value) || 0;
                 const smpPrice = parseFloat(document.getElementById('smpPrice').value) || 0;
+                const recPrice = parseFloat(document.getElementById('recPrice').value) || 0;
+                const recMultiplier = parseFloat(document.getElementById('recMultiplier').value) || 0;
                 const priceLabel = purpose === '판매용' ? 'SMP 단가' : '한전요금단가';
                 const priceValue = purpose === '판매용' ? `${smpPrice.toLocaleString('ko-KR')}원` : `${electricityPrice.toLocaleString('ko-KR')}원`;
+                const recLabel = purpose === '판매용' ? 'REC 단가/배수' : '';
+                const recValue = purpose === '판매용' ? `${recPrice.toLocaleString('ko-KR')}원 × ${recMultiplier}배` : '';
                 const currentMethod = selectedMethod || 'A';
 
                 let investmentHtml = '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
@@ -1406,7 +1419,7 @@
                                 <tr><td style="padding:10px; border:1px solid #ddd; font-weight:700; width:28%;">설치 유형</td><td style="padding:10px; border:1px solid #ddd;">${location}</td><td style="padding:10px; border:1px solid #ddd; font-weight:700; width:28%;">설치 용량</td><td style="padding:10px; border:1px solid #ddd;">${capacity.toLocaleString('ko-KR')} kW</td></tr>
                                 <tr style="background:#f7f9ff;"><td style="padding:10px; border:1px solid #ddd; font-weight:700;">목적</td><td style="padding:10px; border:1px solid #ddd;">${purpose}</td><td style="padding:10px; border:1px solid #ddd; font-weight:700;">투자 방식</td><td style="padding:10px; border:1px solid #ddd;">${methodNames[currentMethod]}</td></tr>
                                 <tr><td style="padding:10px; border:1px solid #ddd; font-weight:700;">설치 단가</td><td style="padding:10px; border:1px solid #ddd;">${unitPrice.toLocaleString('ko-KR')} 원/kW</td><td style="padding:10px; border:1px solid #ddd; font-weight:700;">일일 발전시간</td><td style="padding:10px; border:1px solid #ddd;">${dailyHours.toLocaleString('ko-KR')} 시간</td></tr>
-                                <tr style="background:#f7f9ff;"><td style="padding:10px; border:1px solid #ddd; font-weight:700;">${priceLabel}</td><td style="padding:10px; border:1px solid #ddd;">${priceValue}</td><td style="padding:10px; border:1px solid #ddd;"></td><td style="padding:10px; border:1px solid #ddd;"></td></tr>
+                                <tr style="background:#f7f9ff;"><td style="padding:10px; border:1px solid #ddd; font-weight:700;">${priceLabel}</td><td style="padding:10px; border:1px solid #ddd;">${priceValue}</td><td style="padding:10px; border:1px solid #ddd; font-weight:700;">${recLabel}</td><td style="padding:10px; border:1px solid #ddd;">${recValue}</td></tr>
                             </table>
                         </div>
                         <div style="margin-bottom:24px;"><div style="font-size:18px; font-weight:700; margin-bottom:12px; color:#2f4d91;">💰 투자금액 상세</div>${investmentHtml}</div>
