@@ -1337,9 +1337,9 @@
                 if (ls === 'done') {
                     principalInterestCell = '0원';
                 } else if (ls === 'grace') {
-                    principalInterestCell = `원금 - / 이자 ${formatCurrency(result.interest)}`;
+                    principalInterestCell = `원금 0원 + 이자 ${formatCurrency(result.interest)} = ${formatCurrency(result.interest)}`;
                 } else if (ls === 'repay') {
-                    principalInterestCell = `원금 ${formatCurrency(result.principal)} / 이자 ${formatCurrency(result.interest)}`;
+                    principalInterestCell = `원금 ${formatCurrency(result.principal)} + 이자 ${formatCurrency(result.interest)} = ${formatCurrency(result.payment)}`;
                 }
                 row.innerHTML = `
                     <td>${result.year}</td>
