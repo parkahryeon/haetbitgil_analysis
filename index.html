@@ -606,27 +606,22 @@
             </div>
 
             <div id="modeCSection" class="mode-section hidden">
+                <p style="color:#777; font-size:0.85rem; margin-bottom:15px;">총 투자금액 = 설치비용 + 계통연계비 + 보증보험료 (보증보험료는 1회성으로 가산됩니다)</p>
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>총 투자금액 (원)</label>
-                        <input type="number" id="factoringInvestment" min="0" value="100000000">
-                    </div>
                     <div class="form-group">
                         <label>서울보증보험 보증료율 (%)</label>
-                        <input type="number" id="guaranteeRate" min="0" step="0.1" value="11">
+                        <input type="number" id="guaranteeRate" min="0" step="0.1" value="11" onchange="updateModeUI()">
                     </div>
-                </div>
-                <div class="form-row">
                     <div class="form-group">
                         <label>연 이자율 (%)</label>
                         <input type="number" id="factoringRate" min="0" step="0.1" value="6">
                     </div>
+                </div>
+                <div class="form-row">
                     <div class="form-group">
                         <label>거치 기간 (년)</label>
                         <input type="number" id="factoringGrace" min="0" value="1">
                     </div>
-                </div>
-                <div class="form-row">
                     <div class="form-group">
                         <label>상환 기간 (년)</label>
                         <input type="number" id="factoringTerm" min="1" value="9">
@@ -700,15 +695,9 @@
                         </div>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group hidden" id="insuranceGroup">
-                            <label>보증보험료 (원)</label>
-                            <input type="number" id="insuranceFee" min="0" class="auto-calc">
-                        </div>
-                        <div class="form-group">
-                            <label>일일 발전시간 (시간)</label>
-                            <input type="number" id="dailyHours" min="0" step="0.1" value="3.8">
-                        </div>
+                    <div class="form-group">
+                        <label>일일 발전시간 (시간)</label>
+                        <input type="number" id="dailyHours" min="0" step="0.1" value="3.8">
                     </div>
 
                     <div class="form-row" id="sellInputs">
@@ -979,7 +968,6 @@
                     dailyHoursInput.value = 3.5;
                 }
             }
-            updateInsuranceFee();
         }
 
         function updateModeUI() {
@@ -996,12 +984,6 @@
             });
             const purpose = document.querySelector('input[name="purpose"]:checked').value;
             document.getElementById('grantWarningB1').classList.toggle('hidden', !(selectedMethod === 'B' && selectedSubMethod === 'B1' && purpose === '판매용'));
-            const insuranceGroup = document.getElementById('insuranceGroup');
-            if (selectedMethod === 'C') {
-                insuranceGroup.classList.remove('hidden');
-            } else {
-                insuranceGroup.classList.add('hidden');
-            }
             if (selectedMethod === 'B' && selectedSubMethod === 'B1') {
                 updateSubsidyRateB1();
             }
@@ -1024,15 +1006,6 @@
             const planSelect = document.getElementById('electricityPlan');
             const priceInput = document.getElementById('electricityPrice');
             priceInput.value = planSelect.value;
-        }
-
-        function updateInsuranceFee() {
-            const capacity = parseFloat(document.getElementById('capacity').value) || 0;
-            const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
-            const connectionFee = parseFloat(document.getElementById('connectionFee').value) || 0;
-            const totalInvestment = (capacity * unitPrice) + connectionFee;
-            const insuranceFee = totalInvestment * 0.11;
-            document.getElementById('insuranceFee').value = Math.round(insuranceFee);
         }
 
         function calculateLoanScheduleMonthly(principal, rate, term, grace) {
@@ -1165,19 +1138,19 @@
                     totalFinanceCost = totalInterestCost;
                 }
             } else if (selectedMethod === 'C') {
-                const factoringInvestment = parseFloat(document.getElementById('factoringInvestment').value) || 0;
                 const guaranteeRate = parseFloat(document.getElementById('guaranteeRate').value) || 0;
                 const factoringRate = parseFloat(document.getElementById('factoringRate').value) || 0;
                 const factoringGrace = parseInt(document.getElementById('factoringGrace').value) || 0;
                 const factoringTerm = parseInt(document.getElementById('factoringTerm').value) || 0;
-                loanPrincipal = factoringInvestment;
-                factoringGuarantee = factoringInvestment * (guaranteeRate / 100);
-                const totalInvestment = factoringInvestment + factoringGuarantee;
-                factoringAnnualPrincipal = factoringInvestment / factoringTerm;
-                let outstanding = factoringInvestment;
+                const factoringPrincipalBase = installCost + connectionFee;
+                loanPrincipal = factoringPrincipalBase;
+                factoringGuarantee = factoringPrincipalBase * (guaranteeRate / 100);
+                actualInvestment = factoringPrincipalBase + factoringGuarantee;
+                factoringAnnualPrincipal = factoringTerm > 0 ? factoringPrincipalBase / factoringTerm : 0;
+                let outstanding = factoringPrincipalBase;
                 for (let year = 1; year <= factoringGrace + factoringTerm; year++) {
                     if (year <= factoringGrace) {
-                        const interest = factoringInvestment * (factoringRate / 100);
+                        const interest = factoringPrincipalBase * (factoringRate / 100);
                         factoringTotalInterest += interest;
                     } else {
                         const interest = outstanding * (factoringRate / 100);
@@ -1221,9 +1194,8 @@
                     investmentRows.push({ label: '20년 총 이자', value: formatCurrency(totalInterestCost) });
                     investmentRows.push({ label: '20년 총 납입액', value: formatCurrency(totalLoanPayment) });
                 } else if (selectedMethod === 'C') {
-                    const totalInvestment = loanPrincipal + factoringGuarantee;
-                    investmentRows.push({ label: '총 투자금액', value: formatCurrency(totalInvestment) });
                     investmentRows.push({ label: '보증보험료', value: formatCurrency(factoringGuarantee) });
+                    investmentRows.push({ label: '총 투자금액', value: formatCurrency(actualInvestment) });
                     investmentRows.push({ label: '연간 원금상환액', value: formatCurrency(factoringAnnualPrincipal) });
                     investmentRows.push({ label: '20년 총 이자', value: formatCurrency(factoringTotalInterest) });
                     investmentRows.push({ label: '20년 총 납입액', value: formatCurrency(totalLoanPayment) });
@@ -1284,7 +1256,7 @@
                         paymentRemaining = sched.remaining;
                     }
                 } else if (selectedMethod === 'C') {
-                    const fInv = parseFloat(document.getElementById('factoringInvestment').value) || 0;
+                    const fInv = installCost + connectionFee;
                     const fRate = parseFloat(document.getElementById('factoringRate').value) || 0;
                     const fGrace = parseInt(document.getElementById('factoringGrace').value) || 0;
                     const fTerm = parseInt(document.getElementById('factoringTerm').value) || 0;
@@ -1482,7 +1454,6 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             updateConnectionFee();
-            updateInsuranceFee();
             updateElectricityPrice();
             updateSubsidyRateB1();
             updateB2Amounts();
