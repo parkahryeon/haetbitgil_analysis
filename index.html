@@ -764,22 +764,22 @@
                     <div class="result-card">
                         <h3>20년 누적 매출</h3>
                         <div class="value" id="totalProfit">-</div>
-                        <div class="unit">원</div>
+                        <div class="unit">천만원</div>
                     </div>
                     <div class="result-card">
                         <h3>연평균 매출</h3>
                         <div class="value" id="avgProfit">-</div>
-                        <div class="unit">원</div>
+                        <div class="unit">천만원</div>
                     </div>
                     <div class="result-card" id="totalFinanceCostCard">
                         <h3>총 대출이자</h3>
                         <div class="value" id="totalFinanceCost">-</div>
-                        <div class="unit">원</div>
+                        <div class="unit">백만원</div>
                     </div>
                     <div class="result-card">
                         <h3>순수익</h3>
                         <div class="value" id="profitExcludingFinance">-</div>
-                        <div class="unit">원</div>
+                        <div class="unit">천만원</div>
                     </div>
                 </div>
             </div>
@@ -1062,6 +1062,14 @@
             return new Intl.NumberFormat('ko-KR').format(Math.round(value)) + '원';
         }
 
+        function formatTenMillion(value) {
+            return (value / 10000000).toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        }
+
+        function formatMillion(value) {
+            return (value / 1000000).toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        }
+
         function formatNumber(value) {
             return new Intl.NumberFormat('ko-KR').format(Math.round(value));
         }
@@ -1309,11 +1317,11 @@
             document.getElementById('results').classList.remove('hidden');
             document.getElementById('results').classList.add('fade-in');
             document.getElementById('breakEven').textContent = breakEvenYear || '20년 초과';
-            document.getElementById('totalProfit').textContent = formatCurrency(totalRevenue);
-            document.getElementById('avgProfit').textContent = formatCurrency(totalRevenue / 20);
+            document.getElementById('totalProfit').textContent = formatTenMillion(totalRevenue);
+            document.getElementById('avgProfit').textContent = formatTenMillion(totalRevenue / 20);
             document.getElementById('totalFinanceCostCard').classList.toggle('hidden', !hasLoan);
-            document.getElementById('totalFinanceCost').textContent = formatCurrency(totalFinanceCost);
-            document.getElementById('profitExcludingFinance').textContent = formatCurrency(finalNetProfit);
+            document.getElementById('totalFinanceCost').textContent = formatMillion(totalFinanceCost);
+            document.getElementById('profitExcludingFinance').textContent = formatTenMillion(finalNetProfit);
             const tableBody = document.getElementById('tableBody');
             tableBody.innerHTML = '';
             results.forEach(result => {
