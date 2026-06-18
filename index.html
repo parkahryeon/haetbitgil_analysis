@@ -757,42 +757,27 @@
                 <h2>📊 요약 결과</h2>
                 <div id="results" class="result-grid hidden">
                     <div class="result-card">
-                        <h3>손익분기점</h3>
+                        <h3>투자회수시점</h3>
                         <div class="value" id="breakEven">-</div>
                         <div class="unit">년</div>
                     </div>
                     <div class="result-card">
-                        <h3>20년 총 수익</h3>
+                        <h3>20년 누적 매출</h3>
                         <div class="value" id="totalProfit">-</div>
                         <div class="unit">원</div>
                     </div>
                     <div class="result-card">
-                        <h3>ROI</h3>
-                        <div class="value" id="roi">-</div>
-                        <div class="unit">%</div>
-                    </div>
-                    <div class="result-card">
-                        <h3>연평균 수익</h3>
+                        <h3>연평균 매출</h3>
                         <div class="value" id="avgProfit">-</div>
                         <div class="unit">원</div>
                     </div>
-                    <div class="result-card">
-                        <h3>총 대출원금</h3>
-                        <div class="value" id="selfInvestment">-</div>
-                        <div class="unit">원</div>
-                    </div>
-                    <div class="result-card">
-                        <h3>20년 총 이자비용</h3>
+                    <div class="result-card" id="totalFinanceCostCard">
+                        <h3>총 대출이자</h3>
                         <div class="value" id="totalFinanceCost">-</div>
                         <div class="unit">원</div>
                     </div>
                     <div class="result-card">
-                        <h3>20년 총 납입액</h3>
-                        <div class="value" id="totalLoanPayment">-</div>
-                        <div class="unit">원</div>
-                    </div>
-                    <div class="result-card">
-                        <h3>금융비용 제외 순수익</h3>
+                        <h3>순수익</h3>
                         <div class="value" id="profitExcludingFinance">-</div>
                         <div class="unit">원</div>
                     </div>
@@ -1223,8 +1208,12 @@
                 }
             }
             renderInvestmentBreakdown(investmentRows);
+            const hasLoan = selectedMethod === 'C' ||
+                (selectedMethod === 'B' && selectedSubMethod === 'B2') ||
+                (selectedMethod === 'A' && document.getElementById('loanUsedA').checked);
             const results = [];
             let cumulativeProfit = -actualInvestment;
+            let totalRevenue = 0;
             let breakEvenYear = null;
             for (let year = 1; year <= 20; year++) {
                 let currentCapacity = capacity;
@@ -1253,6 +1242,7 @@
                     warrantyFactor = 0.985 * Math.pow(0.9967, year - 2);
                 }
                 annualRevenue *= warrantyFactor;
+                totalRevenue += annualRevenue;
                 const currentSafetyCost = safetyCost * Math.pow(1.01, year - 1);
                 let paymentAmount = 0, paymentInterest = 0, paymentPrincipal = 0, paymentRemaining = 0;
                 let loanStatus = 'none'; // 'none' | 'grace' | 'repay' | 'done'
@@ -1315,16 +1305,15 @@
                     breakEvenYear = year;
                 }
             }
+            const finalNetProfit = totalRevenue - actualInvestment - (hasLoan ? totalFinanceCost : 0);
             document.getElementById('results').classList.remove('hidden');
             document.getElementById('results').classList.add('fade-in');
             document.getElementById('breakEven').textContent = breakEvenYear || '20년 초과';
-            document.getElementById('totalProfit').textContent = formatCurrency(results[results.length - 1].cumulative);
-            document.getElementById('roi').textContent = results[results.length - 1].roi.toFixed(1);
-            document.getElementById('avgProfit').textContent = formatCurrency(results[results.length - 1].cumulative / 20);
-            document.getElementById('selfInvestment').textContent = formatCurrency(loanPrincipal);
+            document.getElementById('totalProfit').textContent = formatCurrency(totalRevenue);
+            document.getElementById('avgProfit').textContent = formatCurrency(totalRevenue / 20);
+            document.getElementById('totalFinanceCostCard').classList.toggle('hidden', !hasLoan);
             document.getElementById('totalFinanceCost').textContent = formatCurrency(totalFinanceCost);
-            document.getElementById('totalLoanPayment').textContent = formatCurrency(totalLoanPayment);
-            document.getElementById('profitExcludingFinance').textContent = formatCurrency(results[results.length - 1].cumulative + totalFinanceCost);
+            document.getElementById('profitExcludingFinance').textContent = formatCurrency(finalNetProfit);
             const tableBody = document.getElementById('tableBody');
             tableBody.innerHTML = '';
             results.forEach(result => {
@@ -1351,11 +1340,8 @@
                 `;
                 tableBody.appendChild(row);
             });
-            const showPaymentColumn = selectedMethod === 'C' ||
-                (selectedMethod === 'B' && selectedSubMethod === 'B2') ||
-                (selectedMethod === 'A' && document.getElementById('loanUsedA').checked);
             document.querySelectorAll('.payment-col').forEach(el => {
-                el.classList.toggle('hidden', !showPaymentColumn);
+                el.classList.toggle('hidden', !hasLoan);
             });
         }
 
