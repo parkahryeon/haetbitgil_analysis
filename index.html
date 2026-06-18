@@ -1065,25 +1065,23 @@
         function formatAdaptiveAmount(value) {
             const abs = Math.abs(value);
             const sign = value < 0 ? '-' : '';
-            let num, unit;
             if (abs >= 100000000) {
-                num = abs / 100000000;
-                unit = '억원';
+                const totalManWon = Math.round(abs / 10000);
+                const eok = Math.floor(totalManWon / 10000);
+                const manWonRemainder = totalManWon % 10000;
+                return `${sign}${eok}억 ${manWonRemainder.toLocaleString('ko-KR')}만원`;
             } else if (abs >= 10000000) {
-                num = abs / 10000000;
-                unit = '천만원';
+                const manWon = Math.round(abs / 10000);
+                return `${sign}${manWon.toLocaleString('ko-KR')}만원`;
             } else {
-                num = abs / 1000000;
-                unit = '백만원';
+                const baekMan = (abs / 1000000).toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+                return `${sign}${baekMan}백만원`;
             }
-            const text = sign + num.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-            return { text, unit };
         }
 
         function setAdaptiveAmount(valueId, unitId, value) {
-            const f = formatAdaptiveAmount(value);
-            document.getElementById(valueId).textContent = f.text;
-            document.getElementById(unitId).textContent = f.unit;
+            document.getElementById(valueId).textContent = formatAdaptiveAmount(value);
+            document.getElementById(unitId).textContent = '';
         }
 
         function formatNumber(value) {
