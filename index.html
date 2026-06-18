@@ -812,10 +812,7 @@
                             <th>용량 (kW)</th>
                             <th>발전량 (kWh)</th>
                             <th>발전수익 (원)</th>
-                            <th id="principalHeader" class="payment-col hidden">원금상환액 (원)</th>
-                            <th id="interestColHeader" class="payment-col hidden">이자 (원)</th>
-                            <th id="paymentHeader" class="payment-col hidden">납입합계 (원)</th>
-                            <th id="remainingHeader" class="payment-col hidden">잔여원금 (원)</th>
+                            <th id="principalHeader" class="payment-col hidden">원금상환액+이자 (원)</th>
                             <th>순수익 (원)</th>
                             <th>누적 순수익 (원)</th>
                             <th>투자대비수익률 (%)</th>
@@ -1336,15 +1333,20 @@
                     row.classList.add('break-even');
                 }
                 const ls = result.loanStatus;
+                let principalInterestCell = '-';
+                if (ls === 'done') {
+                    principalInterestCell = '0원';
+                } else if (ls === 'grace') {
+                    principalInterestCell = `원금 - / 이자 ${formatCurrency(result.interest)}`;
+                } else if (ls === 'repay') {
+                    principalInterestCell = `원금 ${formatCurrency(result.principal)} / 이자 ${formatCurrency(result.interest)}`;
+                }
                 row.innerHTML = `
                     <td>${result.year}</td>
                     <td>${result.capacity.toFixed(1)}</td>
                     <td>${formatNumber(result.production)}</td>
                     <td>${formatCurrency(result.revenue)}</td>
-                    <td class="payment-col">${ls === 'repay' ? formatCurrency(result.principal) : ls === 'done' ? '0원' : '-'}</td>
-                    <td class="payment-col">${ls === 'none' ? '-' : ls === 'done' ? '0원' : formatCurrency(result.interest)}</td>
-                    <td class="payment-col">${ls === 'none' ? '-' : ls === 'done' ? '0원' : formatCurrency(result.payment)}</td>
-                    <td class="payment-col">${ls === 'none' ? '-' : ls === 'done' ? '0원' : formatCurrency(Math.max(0, result.remaining))}</td>
+                    <td class="payment-col">${principalInterestCell}</td>
                     <td>${formatCurrency(result.netProfit)}</td>
                     <td>${formatCurrency(result.cumulative)}</td>
                     <td>${result.roi.toFixed(1)}%</td>
