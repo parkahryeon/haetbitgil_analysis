@@ -1390,11 +1390,21 @@
                 });
                 investmentHtml += '</table>';
 
+                let summaryHtml = '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                document.querySelectorAll('#results .result-card').forEach(card => {
+                    if (card.classList.contains('hidden')) return;
+                    const label = card.querySelector('h3').textContent;
+                    const value = card.querySelector('.value').textContent;
+                    const unit = card.querySelector('.unit').textContent;
+                    summaryHtml += `<tr><td style="padding:8px; border:1px solid #ddd; font-weight:600; width:40%;">${label}</td><td style="padding:8px; border:1px solid #ddd; text-align:right;">${value}${unit ? ' ' + unit : ''}</td></tr>`;
+                });
+                summaryHtml += '</table>';
+
                 const visibleHeaders = Array.from(document.querySelectorAll('#resultsTable thead th')).filter(th => !th.classList.contains('hidden'));
-                let yearTableHtml = '<table style="width:100%; border-collapse:collapse; font-size:11px;">';
-                yearTableHtml += '<thead><tr style="background:#2f4d91; color:white;">' + visibleHeaders.map(th => `<th style="padding:8px; border:1px solid #ddd;">${th.textContent}</th>`).join('') + '</tr></thead><tbody>';
+                let yearTableHtml = '<table id="pdfYearTable" style="width:100%; border-collapse:collapse; font-size:14px;">';
+                yearTableHtml += '<thead id="pdfYearTableHead"><tr style="background:#2f4d91; color:white;">' + visibleHeaders.map(th => `<th style="padding:10px; border:1px solid #ddd;">${th.textContent}</th>`).join('') + '</tr></thead><tbody>';
                 document.querySelectorAll('#tableBody tr').forEach(row => {
-                    const cells = Array.from(row.children).filter(cell => !cell.classList.contains('hidden')).map(cell => `<td style="padding:8px; border:1px solid #ddd;">${cell.innerHTML}</td>`).join('');
+                    const cells = Array.from(row.children).filter(cell => !cell.classList.contains('hidden')).map(cell => `<td style="padding:10px; border:1px solid #ddd;">${cell.innerHTML}</td>`).join('');
                     const rowStyle = row.classList.contains('break-even') ? 'background:#fff3cd;' : '';
                     yearTableHtml += `<tr style="${rowStyle}">${cells}</tr>`;
                 });
@@ -1405,10 +1415,9 @@
                 printSection.style.left = '-9999px';
                 printSection.style.top = '0';
                 printSection.style.display = 'block';
-                printSection.style.width = '1200px';
                 printSection.style.background = '#ffffff';
                 printSection.innerHTML = `
-                    <div style="width:1200px; padding:40px; background:#ffffff; color:#333; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                    <div id="pdfTopSection" style="width:1200px; padding:40px; background:#ffffff; color:#333; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
                         <div style="text-align:center; margin-bottom:32px;">
                             <div style="font-size:30px; font-weight:700; color:#2f4d91;">☀️ 태양광 경제성 분석 결과</div>
                             <div style="margin-top:8px; color:#555;">출력일자: ${printDate}</div>
@@ -1423,18 +1432,16 @@
                             </table>
                         </div>
                         <div style="margin-bottom:24px;"><div style="font-size:18px; font-weight:700; margin-bottom:12px; color:#2f4d91;">💰 투자금액 상세</div>${investmentHtml}</div>
-                        <div><div style="font-size:18px; font-weight:700; margin-bottom:12px; color:#2f4d91;">📋 연도별 상세 분석</div>${yearTableHtml}</div>
+                        <div><div style="font-size:18px; font-weight:700; margin-bottom:12px; color:#2f4d91;">📊 요약 결과</div>${summaryHtml}</div>
+                    </div>
+                    <div id="pdfTableSection" style="width:1200px; padding:40px; background:#ffffff; color:#333; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                        <div id="pdfTableTitle" style="font-size:18px; font-weight:700; margin-bottom:12px; color:#2f4d91;">📋 연도별 상세 분석</div>
+                        ${yearTableHtml}
                     </div>
                 `;
 
                 await new Promise(resolve => setTimeout(resolve, 300));
-                const canvas = await html2canvas(printSection, {
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: '#ffffff',
-                });
 
-                const imgData = canvas.toDataURL('image/png');
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
                 const pageWidth = pdf.internal.pageSize.getWidth();
@@ -1442,17 +1449,68 @@
                 const margin = 10;
                 const maxWidth = pageWidth - margin * 2;
                 const maxHeight = pageHeight - margin * 2;
-                const originalWidth = canvas.width;
-                const originalHeight = canvas.height;
-                const ratioWidth = maxWidth / originalWidth;
-                const ratioHeight = maxHeight / originalHeight;
-                const scale = Math.min(ratioWidth, ratioHeight, 1);
-                const imgWidth = originalWidth * scale;
-                const imgHeight = originalHeight * scale;
-                const xPos = (pageWidth - imgWidth) / 2;
-                const yPos = margin;
 
-                pdf.addImage(imgData, 'PNG', xPos, yPos, imgWidth, imgHeight);
+                // 1페이지: 입력정보요약 + 투자금액 상세 + 요약 결과 (한 페이지에 맞춰 축소)
+                const topSection = document.getElementById('pdfTopSection');
+                const topCanvas = await html2canvas(topSection, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+                const topScale = Math.min(maxWidth / topCanvas.width, maxHeight / topCanvas.height, 1);
+                const topImgWidth = topCanvas.width * topScale;
+                const topImgHeight = topCanvas.height * topScale;
+                pdf.addImage(topCanvas.toDataURL('image/png'), 'PNG', (pageWidth - topImgWidth) / 2, margin, topImgWidth, topImgHeight);
+
+                // 2페이지 이후: 연도별 상세 분석 - A4 원본 크기로, 행이 잘리지 않도록 행 경계 기준으로 페이지 분할
+                const tableSection = document.getElementById('pdfTableSection');
+                const htmlScale = 2;
+                const sectionRect = tableSection.getBoundingClientRect();
+                const theadRect = tableSection.querySelector('#pdfYearTableHead').getBoundingClientRect();
+                const theadTop = (theadRect.top - sectionRect.top) * htmlScale;
+                const theadBottom = (theadRect.bottom - sectionRect.top) * htmlScale;
+                const theadHeightPx = theadBottom - theadTop;
+                const rowBoundaries = Array.from(tableSection.querySelectorAll('#pdfYearTable tbody tr')).map(tr => {
+                    const r = tr.getBoundingClientRect();
+                    return (r.bottom - sectionRect.top) * htmlScale;
+                });
+
+                const tableCanvas = await html2canvas(tableSection, { scale: htmlScale, useCORS: true, backgroundColor: '#ffffff' });
+                const pxToMm = maxWidth / tableCanvas.width;
+                const pageHeightPx = maxHeight / pxToMm;
+
+                let yStart = 0;
+                let pageIndex = 0;
+                while (yStart < tableCanvas.height - 1) {
+                    const availableHeightPx = pageIndex === 0 ? pageHeightPx : (pageHeightPx - theadHeightPx);
+                    let yEnd = Math.min(yStart + availableHeightPx, tableCanvas.height);
+                    if (yEnd < tableCanvas.height) {
+                        let best = null;
+                        for (const b of rowBoundaries) {
+                            if (b > yStart && b <= yEnd) best = b;
+                        }
+                        if (best) yEnd = best;
+                    }
+                    const sliceHeightPx = yEnd - yStart;
+
+                    let outCanvas;
+                    if (pageIndex === 0) {
+                        outCanvas = document.createElement('canvas');
+                        outCanvas.width = tableCanvas.width;
+                        outCanvas.height = sliceHeightPx;
+                        outCanvas.getContext('2d').drawImage(tableCanvas, 0, yStart, tableCanvas.width, sliceHeightPx, 0, 0, tableCanvas.width, sliceHeightPx);
+                    } else {
+                        outCanvas = document.createElement('canvas');
+                        outCanvas.width = tableCanvas.width;
+                        outCanvas.height = theadHeightPx + sliceHeightPx;
+                        const ctx = outCanvas.getContext('2d');
+                        ctx.drawImage(tableCanvas, 0, theadTop, tableCanvas.width, theadHeightPx, 0, 0, tableCanvas.width, theadHeightPx);
+                        ctx.drawImage(tableCanvas, 0, yStart, tableCanvas.width, sliceHeightPx, 0, theadHeightPx, tableCanvas.width, sliceHeightPx);
+                    }
+
+                    pdf.addPage();
+                    pdf.addImage(outCanvas.toDataURL('image/png'), 'PNG', margin, margin, maxWidth, outCanvas.height * pxToMm);
+
+                    yStart = yEnd;
+                    pageIndex++;
+                }
+
                 pdf.save(fileName);
             } catch (error) {
                 console.error(error);
