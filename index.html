@@ -428,10 +428,13 @@
         }
 
         @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
             body {
                 background: white;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
             }
 
             .no-print {
@@ -444,8 +447,6 @@
 
             #printSection, #printSection * {
                 visibility: visible;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
             }
 
             #printSection {
@@ -460,7 +461,12 @@
             }
 
             @page {
+                size: A4;
                 margin: 10mm;
+            }
+
+            #pdfTableSection {
+                page-break-before: always;
             }
 
             .print-section {
@@ -474,7 +480,7 @@
             .print-section table {
                 width: 100%;
                 page-break-inside: auto;
-                font-size: 15px;
+                font-size: 13px;
             }
 
             .print-section tr {
@@ -483,13 +489,13 @@
             }
 
             .print-section th, .print-section td {
-                padding: 14px;
-                font-size: 15px;
+                padding: 10px;
+                font-size: 13px;
             }
 
             .print-section th {
                 font-weight: 700;
-                font-size: 16px;
+                font-size: 14px;
             }
         }
     </style>
@@ -1448,30 +1454,46 @@
                 const recValue = purpose === '판매용' ? `${recPrice.toLocaleString('ko-KR')}원 × ${recMultiplier}배` : '';
                 const currentMethod = selectedMethod || 'A';
 
-                let investmentHtml = '<table style="width:100%; border-collapse:collapse; font-size:15px;">';
-                document.querySelectorAll('#investmentBreakdown .breakdown-item').forEach(item => {
+                const breakdownItems = Array.from(document.querySelectorAll('#investmentBreakdown .breakdown-item'));
+                let investmentHtml = '<div style="background:#ffffff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden;">';
+                breakdownItems.forEach((item, idx) => {
                     const label = item.querySelector('.breakdown-label').textContent;
                     const value = item.querySelector('.breakdown-value').textContent;
-                    investmentHtml += `<tr><td style="padding:12px; border:1px solid #ddd; font-weight:600; width:40%;">${label}</td><td style="padding:12px; border:1px solid #ddd; text-align:right;">${value}</td></tr>`;
+                    const isTotal = label === '총 투자금액';
+                    const isLast = idx === breakdownItems.length - 1;
+                    const rowBg = isTotal ? 'background:#f0eeff;' : '';
+                    const rowBorder = isLast ? '' : 'border-bottom:1px solid #eee;';
+                    investmentHtml += `<div class="pdf-card-row" style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px; ${rowBorder} ${rowBg}">
+                        <span style="font-size:14px; color:#666; ${isTotal ? 'font-weight:700;' : ''}">${label}</span>
+                        <span style="font-size:${isTotal ? '18' : '16'}px; color:#5b5fc7; font-weight:700;">${value}</span>
+                    </div>`;
                 });
-                investmentHtml += '</table>';
+                investmentHtml += '</div>';
 
-                let summaryHtml = '<table style="width:100%; border-collapse:collapse; font-size:16px;">';
+                let summaryHtml = '<div id="pdfSummaryGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">';
                 document.querySelectorAll('#results .result-card').forEach(card => {
                     if (card.classList.contains('hidden')) return;
                     const label = card.querySelector('h3').textContent;
                     const value = card.querySelector('.value').textContent;
                     const unit = card.querySelector('.unit').textContent;
-                    summaryHtml += `<tr><td style="padding:14px; border:1px solid #ddd; font-weight:600; width:40%;">${label}</td><td style="padding:14px; border:1px solid #ddd; text-align:right; font-weight:700; color:#2f4d91;">${value}${unit ? ' ' + unit : ''}</td></tr>`;
+                    summaryHtml += `<div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius:12px; padding:22px; text-align:center;">
+                        <div style="color:#ffffff; font-size:13px; opacity:0.9;">${label}</div>
+                        <div style="color:#ffffff; font-size:28px; font-weight:700; margin-top:10px;">${value}</div>
+                        <div style="color:#ffffff; font-size:12px; opacity:0.85; margin-top:6px;">${unit}</div>
+                    </div>`;
                 });
-                summaryHtml += '</table>';
+                summaryHtml += '</div>';
 
                 const visibleHeaders = Array.from(document.querySelectorAll('#resultsTable thead th')).filter(th => !th.classList.contains('hidden'));
-                let yearTableHtml = '<table id="pdfYearTable" style="width:100%; border-collapse:collapse; font-size:15px;">';
-                yearTableHtml += '<thead id="pdfYearTableHead"><tr style="background:#2f4d91; color:white;">' + visibleHeaders.map(th => `<th style="padding:14px; border:1px solid #ddd; font-weight:700; font-size:16px;">${th.textContent}</th>`).join('') + '</tr></thead><tbody>';
-                document.querySelectorAll('#tableBody tr').forEach(row => {
-                    const cells = Array.from(row.children).filter(cell => !cell.classList.contains('hidden')).map(cell => `<td style="padding:14px; border:1px solid #ddd; text-align:right;">${cell.innerHTML}</td>`).join('');
-                    const rowStyle = row.classList.contains('break-even') ? 'background:#ffe28a; font-weight:700;' : '';
+                const colCount = visibleHeaders.length;
+                let yearTableHtml = `<table id="pdfYearTable" style="width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed;">`;
+                yearTableHtml += '<thead id="pdfYearTableHead"><tr style="background:#5b5fc7; color:#ffffff;">' + visibleHeaders.map(th => `<th style="padding:10px; border:1px solid #ddd; font-weight:700; font-size:14px; width:${(100 / colCount).toFixed(2)}%;">${th.textContent}</th>`).join('') + '</tr></thead><tbody>';
+                document.querySelectorAll('#tableBody tr').forEach((row, idx) => {
+                    const cells = Array.from(row.children).filter(cell => !cell.classList.contains('hidden')).map(cell => `<td style="padding:10px; border:1px solid #ddd; text-align:right;">${cell.innerHTML}</td>`).join('');
+                    let rowStyle = idx % 2 === 1 ? 'background:#f8f9fa;' : '';
+                    if (row.classList.contains('break-even')) {
+                        rowStyle = 'background:#fff3cd; font-weight:700;';
+                    }
                     yearTableHtml += `<tr style="${rowStyle}">${cells}</tr>`;
                 });
                 yearTableHtml += '</tbody></table>';
@@ -1516,9 +1538,13 @@
                 const maxWidth = pageWidth - margin * 2;
                 const maxHeight = pageHeight - margin * 2;
 
-                // 1페이지(이상): 입력정보요약 + 투자금액 상세 + 요약 결과 - 페이지 폭에 맞춰 원본 크기로, 행 경계 기준으로 분할
+                // 1페이지(이상): 입력정보요약 + 투자금액 상세 + 요약 결과 - 페이지 폭에 맞춰 원본 크기로, 행/카드 경계 기준으로 분할
                 const topSection = document.getElementById('pdfTopSection');
-                const topBreakEls = Array.from(topSection.querySelectorAll('tr'));
+                const topBreakEls = [
+                    ...Array.from(topSection.querySelectorAll('table tr')),
+                    ...Array.from(topSection.querySelectorAll('.pdf-card-row')),
+                    topSection.querySelector('#pdfSummaryGrid'),
+                ].filter(Boolean);
                 const topSlices = await renderSlicesToPdf(topSection, topBreakEls, null, maxWidth, maxHeight);
                 topSlices.forEach((slice, i) => {
                     if (i > 0) pdf.addPage();
