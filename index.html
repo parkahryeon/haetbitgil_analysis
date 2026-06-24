@@ -430,6 +430,8 @@
         @media print {
             body {
                 background: white;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
 
             .no-print {
@@ -442,6 +444,8 @@
 
             #printSection, #printSection * {
                 visibility: visible;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
 
             #printSection {
@@ -455,16 +459,22 @@
                 box-shadow: none;
             }
 
+            @page {
+                margin: 10mm;
+            }
+
             .print-section {
                 box-shadow: none;
                 border-radius: 0;
                 margin: 0;
                 padding: 0;
+                font-size: 15px;
             }
 
             .print-section table {
                 width: 100%;
                 page-break-inside: auto;
+                font-size: 15px;
             }
 
             .print-section tr {
@@ -473,7 +483,13 @@
             }
 
             .print-section th, .print-section td {
-                padding: 8px 10px;
+                padding: 14px;
+                font-size: 15px;
+            }
+
+            .print-section th {
+                font-weight: 700;
+                font-size: 16px;
             }
         }
     </style>
@@ -1348,6 +1364,56 @@
             });
         }
 
+        async function renderSlicesToPdf(container, breakElements, repeatHeaderElement, maxWidth, maxHeight) {
+            const htmlScale = 2;
+            const canvas = await html2canvas(container, { scale: htmlScale, useCORS: true, backgroundColor: '#ffffff' });
+            const pxToMm = maxWidth / canvas.width;
+            const pageHeightPx = maxHeight / pxToMm;
+            const containerRect = container.getBoundingClientRect();
+            const boundaries = breakElements.map(el => (el.getBoundingClientRect().bottom - containerRect.top) * htmlScale);
+
+            let headerTop = 0, headerHeightPx = 0;
+            if (repeatHeaderElement) {
+                const r = repeatHeaderElement.getBoundingClientRect();
+                headerTop = (r.top - containerRect.top) * htmlScale;
+                headerHeightPx = (r.bottom - containerRect.top) * htmlScale - headerTop;
+            }
+
+            const slices = [];
+            let yStart = 0;
+            let pageIndex = 0;
+            while (yStart < canvas.height - 1) {
+                const available = pageIndex === 0 ? pageHeightPx : (pageHeightPx - headerHeightPx);
+                let yEnd = Math.min(yStart + available, canvas.height);
+                if (yEnd < canvas.height) {
+                    let best = null;
+                    for (const b of boundaries) {
+                        if (b > yStart && b <= yEnd) best = b;
+                    }
+                    if (best) yEnd = best;
+                }
+                const sliceHeightPx = yEnd - yStart;
+
+                const outCanvas = document.createElement('canvas');
+                if (pageIndex === 0 || !repeatHeaderElement) {
+                    outCanvas.width = canvas.width;
+                    outCanvas.height = sliceHeightPx;
+                    outCanvas.getContext('2d').drawImage(canvas, 0, yStart, canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx);
+                } else {
+                    outCanvas.width = canvas.width;
+                    outCanvas.height = headerHeightPx + sliceHeightPx;
+                    const ctx = outCanvas.getContext('2d');
+                    ctx.drawImage(canvas, 0, headerTop, canvas.width, headerHeightPx, 0, 0, canvas.width, headerHeightPx);
+                    ctx.drawImage(canvas, 0, yStart, canvas.width, sliceHeightPx, 0, headerHeightPx, canvas.width, sliceHeightPx);
+                }
+
+                slices.push({ dataUrl: outCanvas.toDataURL('image/png'), heightMm: outCanvas.height * pxToMm });
+                yStart = yEnd;
+                pageIndex++;
+            }
+            return slices;
+        }
+
         async function printSolar() {
             const resultsPanel = document.getElementById('results');
             if (resultsPanel.classList.contains('hidden')) {
@@ -1382,30 +1448,30 @@
                 const recValue = purpose === '판매용' ? `${recPrice.toLocaleString('ko-KR')}원 × ${recMultiplier}배` : '';
                 const currentMethod = selectedMethod || 'A';
 
-                let investmentHtml = '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                let investmentHtml = '<table style="width:100%; border-collapse:collapse; font-size:15px;">';
                 document.querySelectorAll('#investmentBreakdown .breakdown-item').forEach(item => {
                     const label = item.querySelector('.breakdown-label').textContent;
                     const value = item.querySelector('.breakdown-value').textContent;
-                    investmentHtml += `<tr><td style="padding:8px; border:1px solid #ddd; font-weight:600; width:40%;">${label}</td><td style="padding:8px; border:1px solid #ddd; text-align:right;">${value}</td></tr>`;
+                    investmentHtml += `<tr><td style="padding:12px; border:1px solid #ddd; font-weight:600; width:40%;">${label}</td><td style="padding:12px; border:1px solid #ddd; text-align:right;">${value}</td></tr>`;
                 });
                 investmentHtml += '</table>';
 
-                let summaryHtml = '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                let summaryHtml = '<table style="width:100%; border-collapse:collapse; font-size:16px;">';
                 document.querySelectorAll('#results .result-card').forEach(card => {
                     if (card.classList.contains('hidden')) return;
                     const label = card.querySelector('h3').textContent;
                     const value = card.querySelector('.value').textContent;
                     const unit = card.querySelector('.unit').textContent;
-                    summaryHtml += `<tr><td style="padding:8px; border:1px solid #ddd; font-weight:600; width:40%;">${label}</td><td style="padding:8px; border:1px solid #ddd; text-align:right;">${value}${unit ? ' ' + unit : ''}</td></tr>`;
+                    summaryHtml += `<tr><td style="padding:14px; border:1px solid #ddd; font-weight:600; width:40%;">${label}</td><td style="padding:14px; border:1px solid #ddd; text-align:right; font-weight:700; color:#2f4d91;">${value}${unit ? ' ' + unit : ''}</td></tr>`;
                 });
                 summaryHtml += '</table>';
 
                 const visibleHeaders = Array.from(document.querySelectorAll('#resultsTable thead th')).filter(th => !th.classList.contains('hidden'));
-                let yearTableHtml = '<table id="pdfYearTable" style="width:100%; border-collapse:collapse; font-size:14px;">';
-                yearTableHtml += '<thead id="pdfYearTableHead"><tr style="background:#2f4d91; color:white;">' + visibleHeaders.map(th => `<th style="padding:10px; border:1px solid #ddd;">${th.textContent}</th>`).join('') + '</tr></thead><tbody>';
+                let yearTableHtml = '<table id="pdfYearTable" style="width:100%; border-collapse:collapse; font-size:15px;">';
+                yearTableHtml += '<thead id="pdfYearTableHead"><tr style="background:#2f4d91; color:white;">' + visibleHeaders.map(th => `<th style="padding:14px; border:1px solid #ddd; font-weight:700; font-size:16px;">${th.textContent}</th>`).join('') + '</tr></thead><tbody>';
                 document.querySelectorAll('#tableBody tr').forEach(row => {
-                    const cells = Array.from(row.children).filter(cell => !cell.classList.contains('hidden')).map(cell => `<td style="padding:10px; border:1px solid #ddd;">${cell.innerHTML}</td>`).join('');
-                    const rowStyle = row.classList.contains('break-even') ? 'background:#fff3cd;' : '';
+                    const cells = Array.from(row.children).filter(cell => !cell.classList.contains('hidden')).map(cell => `<td style="padding:14px; border:1px solid #ddd; text-align:right;">${cell.innerHTML}</td>`).join('');
+                    const rowStyle = row.classList.contains('break-even') ? 'background:#ffe28a; font-weight:700;' : '';
                     yearTableHtml += `<tr style="${rowStyle}">${cells}</tr>`;
                 });
                 yearTableHtml += '</tbody></table>';
@@ -1417,25 +1483,25 @@
                 printSection.style.display = 'block';
                 printSection.style.background = '#ffffff';
                 printSection.innerHTML = `
-                    <div id="pdfTopSection" style="width:1200px; padding:40px; background:#ffffff; color:#333; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-                        <div style="text-align:center; margin-bottom:32px;">
+                    <div id="pdfTopSection" style="width:1200px; padding:24px; background:#ffffff; color:#333; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                        <div style="text-align:center; margin-bottom:20px;">
                             <div style="font-size:30px; font-weight:700; color:#2f4d91;">☀️ 태양광 경제성 분석 결과</div>
-                            <div style="margin-top:8px; color:#555;">출력일자: ${printDate}</div>
+                            <div style="margin-top:8px; color:#555; font-size:15px;">출력일자: ${printDate}</div>
                         </div>
-                        <div style="margin-bottom:24px;">
-                            <div style="font-size:18px; font-weight:700; margin-bottom:12px; color:#2f4d91;">📝 입력 정보 요약</div>
-                            <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                                <tr><td style="padding:10px; border:1px solid #ddd; font-weight:700; width:28%;">설치 유형</td><td style="padding:10px; border:1px solid #ddd;">${location}</td><td style="padding:10px; border:1px solid #ddd; font-weight:700; width:28%;">설치 용량</td><td style="padding:10px; border:1px solid #ddd;">${capacity.toLocaleString('ko-KR')} kW</td></tr>
-                                <tr style="background:#f7f9ff;"><td style="padding:10px; border:1px solid #ddd; font-weight:700;">목적</td><td style="padding:10px; border:1px solid #ddd;">${purpose}</td><td style="padding:10px; border:1px solid #ddd; font-weight:700;">투자 방식</td><td style="padding:10px; border:1px solid #ddd;">${methodNames[currentMethod]}</td></tr>
-                                <tr><td style="padding:10px; border:1px solid #ddd; font-weight:700;">설치 단가</td><td style="padding:10px; border:1px solid #ddd;">${unitPrice.toLocaleString('ko-KR')} 원/kW</td><td style="padding:10px; border:1px solid #ddd; font-weight:700;">일일 발전시간</td><td style="padding:10px; border:1px solid #ddd;">${dailyHours.toLocaleString('ko-KR')} 시간</td></tr>
-                                <tr style="background:#f7f9ff;"><td style="padding:10px; border:1px solid #ddd; font-weight:700;">${priceLabel}</td><td style="padding:10px; border:1px solid #ddd;">${priceValue}</td><td style="padding:10px; border:1px solid #ddd; font-weight:700;">${recLabel}</td><td style="padding:10px; border:1px solid #ddd;">${recValue}</td></tr>
+                        <div style="margin-bottom:14px;">
+                            <div style="font-size:20px; font-weight:700; margin-bottom:10px; color:#2f4d91;">📝 입력 정보 요약</div>
+                            <table style="width:100%; border-collapse:collapse; font-size:15px;">
+                                <tr><td style="padding:14px; border:1px solid #ddd; font-weight:700; width:28%;">설치 유형</td><td style="padding:14px; border:1px solid #ddd;">${location}</td><td style="padding:14px; border:1px solid #ddd; font-weight:700; width:28%;">설치 용량</td><td style="padding:14px; border:1px solid #ddd;">${capacity.toLocaleString('ko-KR')} kW</td></tr>
+                                <tr style="background:#f7f9ff;"><td style="padding:14px; border:1px solid #ddd; font-weight:700;">목적</td><td style="padding:14px; border:1px solid #ddd;">${purpose}</td><td style="padding:14px; border:1px solid #ddd; font-weight:700;">투자 방식</td><td style="padding:14px; border:1px solid #ddd;">${methodNames[currentMethod]}</td></tr>
+                                <tr><td style="padding:14px; border:1px solid #ddd; font-weight:700;">설치 단가</td><td style="padding:14px; border:1px solid #ddd;">${unitPrice.toLocaleString('ko-KR')} 원/kW</td><td style="padding:14px; border:1px solid #ddd; font-weight:700;">일일 발전시간</td><td style="padding:14px; border:1px solid #ddd;">${dailyHours.toLocaleString('ko-KR')} 시간</td></tr>
+                                <tr style="background:#f7f9ff;"><td style="padding:14px; border:1px solid #ddd; font-weight:700;">${priceLabel}</td><td style="padding:14px; border:1px solid #ddd;">${priceValue}</td><td style="padding:14px; border:1px solid #ddd; font-weight:700;">${recLabel}</td><td style="padding:14px; border:1px solid #ddd;">${recValue}</td></tr>
                             </table>
                         </div>
-                        <div style="margin-bottom:24px;"><div style="font-size:18px; font-weight:700; margin-bottom:12px; color:#2f4d91;">💰 투자금액 상세</div>${investmentHtml}</div>
-                        <div><div style="font-size:18px; font-weight:700; margin-bottom:12px; color:#2f4d91;">📊 요약 결과</div>${summaryHtml}</div>
+                        <div style="margin-bottom:14px;"><div style="font-size:20px; font-weight:700; margin-bottom:10px; color:#2f4d91;">💰 투자금액 상세</div>${investmentHtml}</div>
+                        <div><div style="font-size:20px; font-weight:700; margin-bottom:10px; color:#2f4d91;">📊 요약 결과</div>${summaryHtml}</div>
                     </div>
-                    <div id="pdfTableSection" style="width:1200px; padding:40px; background:#ffffff; color:#333; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-                        <div id="pdfTableTitle" style="font-size:18px; font-weight:700; margin-bottom:12px; color:#2f4d91;">📋 연도별 상세 분석</div>
+                    <div id="pdfTableSection" style="width:1200px; padding:24px; background:#ffffff; color:#333; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                        <div id="pdfTableTitle" style="font-size:20px; font-weight:700; margin-bottom:10px; color:#2f4d91;">📋 연도별 상세 분석</div>
                         ${yearTableHtml}
                     </div>
                 `;
@@ -1450,66 +1516,24 @@
                 const maxWidth = pageWidth - margin * 2;
                 const maxHeight = pageHeight - margin * 2;
 
-                // 1페이지: 입력정보요약 + 투자금액 상세 + 요약 결과 (한 페이지에 맞춰 축소)
+                // 1페이지(이상): 입력정보요약 + 투자금액 상세 + 요약 결과 - 페이지 폭에 맞춰 원본 크기로, 행 경계 기준으로 분할
                 const topSection = document.getElementById('pdfTopSection');
-                const topCanvas = await html2canvas(topSection, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-                const topScale = Math.min(maxWidth / topCanvas.width, maxHeight / topCanvas.height, 1);
-                const topImgWidth = topCanvas.width * topScale;
-                const topImgHeight = topCanvas.height * topScale;
-                pdf.addImage(topCanvas.toDataURL('image/png'), 'PNG', (pageWidth - topImgWidth) / 2, margin, topImgWidth, topImgHeight);
-
-                // 2페이지 이후: 연도별 상세 분석 - A4 원본 크기로, 행이 잘리지 않도록 행 경계 기준으로 페이지 분할
-                const tableSection = document.getElementById('pdfTableSection');
-                const htmlScale = 2;
-                const sectionRect = tableSection.getBoundingClientRect();
-                const theadRect = tableSection.querySelector('#pdfYearTableHead').getBoundingClientRect();
-                const theadTop = (theadRect.top - sectionRect.top) * htmlScale;
-                const theadBottom = (theadRect.bottom - sectionRect.top) * htmlScale;
-                const theadHeightPx = theadBottom - theadTop;
-                const rowBoundaries = Array.from(tableSection.querySelectorAll('#pdfYearTable tbody tr')).map(tr => {
-                    const r = tr.getBoundingClientRect();
-                    return (r.bottom - sectionRect.top) * htmlScale;
+                const topBreakEls = Array.from(topSection.querySelectorAll('tr'));
+                const topSlices = await renderSlicesToPdf(topSection, topBreakEls, null, maxWidth, maxHeight);
+                topSlices.forEach((slice, i) => {
+                    if (i > 0) pdf.addPage();
+                    pdf.addImage(slice.dataUrl, 'PNG', margin, margin, maxWidth, slice.heightMm);
                 });
 
-                const tableCanvas = await html2canvas(tableSection, { scale: htmlScale, useCORS: true, backgroundColor: '#ffffff' });
-                const pxToMm = maxWidth / tableCanvas.width;
-                const pageHeightPx = maxHeight / pxToMm;
-
-                let yStart = 0;
-                let pageIndex = 0;
-                while (yStart < tableCanvas.height - 1) {
-                    const availableHeightPx = pageIndex === 0 ? pageHeightPx : (pageHeightPx - theadHeightPx);
-                    let yEnd = Math.min(yStart + availableHeightPx, tableCanvas.height);
-                    if (yEnd < tableCanvas.height) {
-                        let best = null;
-                        for (const b of rowBoundaries) {
-                            if (b > yStart && b <= yEnd) best = b;
-                        }
-                        if (best) yEnd = best;
-                    }
-                    const sliceHeightPx = yEnd - yStart;
-
-                    let outCanvas;
-                    if (pageIndex === 0) {
-                        outCanvas = document.createElement('canvas');
-                        outCanvas.width = tableCanvas.width;
-                        outCanvas.height = sliceHeightPx;
-                        outCanvas.getContext('2d').drawImage(tableCanvas, 0, yStart, tableCanvas.width, sliceHeightPx, 0, 0, tableCanvas.width, sliceHeightPx);
-                    } else {
-                        outCanvas = document.createElement('canvas');
-                        outCanvas.width = tableCanvas.width;
-                        outCanvas.height = theadHeightPx + sliceHeightPx;
-                        const ctx = outCanvas.getContext('2d');
-                        ctx.drawImage(tableCanvas, 0, theadTop, tableCanvas.width, theadHeightPx, 0, 0, tableCanvas.width, theadHeightPx);
-                        ctx.drawImage(tableCanvas, 0, yStart, tableCanvas.width, sliceHeightPx, 0, theadHeightPx, tableCanvas.width, sliceHeightPx);
-                    }
-
+                // 다음 페이지: 연도별 상세 분석 - 원본 크기로, 행이 잘리지 않도록 행 경계 기준으로 페이지 분할, 헤더 반복
+                const tableSection = document.getElementById('pdfTableSection');
+                const tableBreakEls = Array.from(tableSection.querySelectorAll('#pdfYearTable tbody tr'));
+                const theadEl = tableSection.querySelector('#pdfYearTableHead');
+                const tableSlices = await renderSlicesToPdf(tableSection, tableBreakEls, theadEl, maxWidth, maxHeight);
+                tableSlices.forEach(slice => {
                     pdf.addPage();
-                    pdf.addImage(outCanvas.toDataURL('image/png'), 'PNG', margin, margin, maxWidth, outCanvas.height * pxToMm);
-
-                    yStart = yEnd;
-                    pageIndex++;
-                }
+                    pdf.addImage(slice.dataUrl, 'PNG', margin, margin, maxWidth, slice.heightMm);
+                });
 
                 pdf.save(fileName);
             } catch (error) {
