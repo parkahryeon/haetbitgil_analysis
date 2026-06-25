@@ -1413,7 +1413,7 @@
                     ctx.drawImage(canvas, 0, yStart, canvas.width, sliceHeightPx, 0, headerHeightPx, canvas.width, sliceHeightPx);
                 }
 
-                slices.push({ dataUrl: outCanvas.toDataURL('image/png'), heightMm: outCanvas.height * pxToMm });
+                slices.push({ dataUrl: outCanvas.toDataURL('image/jpeg', 0.85), heightMm: outCanvas.height * pxToMm });
                 yStart = yEnd;
                 pageIndex++;
             }
@@ -1548,7 +1548,7 @@
                 const topSlices = await renderSlicesToPdf(topSection, topBreakEls, null, maxWidth, maxHeight);
                 topSlices.forEach((slice, i) => {
                     if (i > 0) pdf.addPage();
-                    pdf.addImage(slice.dataUrl, 'PNG', margin, margin, maxWidth, slice.heightMm);
+                    pdf.addImage(slice.dataUrl, 'JPEG', margin, margin, maxWidth, slice.heightMm);
                 });
 
                 // 다음 페이지: 연도별 상세 분석 - 원본 크기로, 행이 잘리지 않도록 행 경계 기준으로 페이지 분할, 헤더 반복
@@ -1558,7 +1558,7 @@
                 const tableSlices = await renderSlicesToPdf(tableSection, tableBreakEls, theadEl, maxWidth, maxHeight);
                 tableSlices.forEach(slice => {
                     pdf.addPage();
-                    pdf.addImage(slice.dataUrl, 'PNG', margin, margin, maxWidth, slice.heightMm);
+                    pdf.addImage(slice.dataUrl, 'JPEG', margin, margin, maxWidth, slice.heightMm);
                 });
 
                 pdf.save(fileName);
