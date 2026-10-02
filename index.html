@@ -6,6 +6,7 @@
     <title>태양광 경제성 분석기</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -28,24 +29,65 @@
         }
 
         .header {
-            text-align: center;
             margin-bottom: 30px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 40px 20px;
             border-radius: 15px;
+            overflow: hidden;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
 
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        /* 1단: 흰색 상단 바 (좌: 로고 / 우: 날짜·리포트명) */
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            background: #ffffff;
+            padding: 18px 25px;
+            border-bottom: 1px solid #e5e7eb;
         }
 
-        .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
+        .header-logo {
+            height: 55px;
+            width: auto;
+            display: block;
+        }
+
+        .header-logo-fallback {
+            display: none;
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #1a3a5c;
+            letter-spacing: -1px;
+        }
+
+        .header-logo-fallback span {
+            color: #2563eb;
+        }
+
+        .header-meta {
+            text-align: right;
+            font-size: 0.8rem;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        /* 2단: 네이비 배너 (사업제안서 기준 색상) */
+        .header-banner {
+            background: #1c3d6a;
+            padding: 15px 20px;
+        }
+
+        .header-banner h1 {
+            color: #ffffff;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .header-banner p {
+            color: #ffffff;
+            font-size: 13px;
+            opacity: 0.85;
         }
 
         .grid {
@@ -284,6 +326,85 @@
             color: white;
         }
 
+        .proposal-upload {
+            margin-top: 20px;
+            padding: 20px;
+            border: 2px dashed #c3cbe4;
+            border-radius: 12px;
+            background: #fafbff;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .proposal-upload.has-file {
+            border-style: solid;
+            border-color: #28a745;
+            background: #f4fbf6;
+        }
+
+        .proposal-upload-title {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 6px;
+        }
+
+        .proposal-upload-hint {
+            color: #8a8f9c;
+            font-size: 0.85rem;
+            margin-bottom: 14px;
+        }
+
+        .proposal-pick-btn {
+            padding: 10px 22px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .proposal-pick-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .proposal-file-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .proposal-file-name {
+            color: #256029;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .proposal-remove-btn {
+            width: 26px;
+            height: 26px;
+            flex-shrink: 0;
+            border: none;
+            border-radius: 50%;
+            background: #e5e8ef;
+            color: #555;
+            cursor: pointer;
+            font-size: 0.85rem;
+            line-height: 1;
+            transition: all 0.3s ease;
+        }
+
+        .proposal-remove-btn:hover {
+            background: #dc3545;
+            color: white;
+        }
+
         .print-section {
             display: none;
             background: white;
@@ -423,8 +544,14 @@
                 grid-template-columns: 1fr;
             }
 
-            .header h1 {
-                font-size: 2rem;
+            .header-top {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .header-meta {
+                text-align: left;
             }
 
             .result-grid {
@@ -444,6 +571,13 @@
 
             .no-print {
                 display: none !important;
+            }
+
+            /* 네이비 배너 배경색 강제 출력 */
+            .header-banner {
+                background: #1c3d6a !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
 
             body * {
@@ -479,13 +613,13 @@
                 border-radius: 0;
                 margin: 0;
                 padding: 0;
-                font-size: 15px;
+                font-size: 13px;
             }
 
             .print-section table {
                 width: 100%;
                 page-break-inside: auto;
-                font-size: 18px;
+                font-size: 13px;
             }
 
             .print-section tr {
@@ -494,13 +628,7 @@
             }
 
             .print-section th, .print-section td {
-                padding: 10px;
-                font-size: 18px;
-            }
-
-            .print-section th {
-                font-weight: 700;
-                font-size: 16px;
+                font-size: 13px;
             }
         }
     </style>
@@ -508,8 +636,20 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>☀️ 태양광 경제성 분석기</h1>
-            <p>투자 방식별 맞춤 경제성 분석을 간편하게 확인하세요.</p>
+            <div class="header-top">
+                <div>
+                    <img src="logo.png" alt="햇빛길Plus" class="header-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <div class="header-logo-fallback">햇빛길<span>Plus</span></div>
+                </div>
+                <div class="header-meta">
+                    <div id="headerDate"></div>
+                    <div>태양광 발전 경제성 분석 리포트</div>
+                </div>
+            </div>
+            <div class="header-banner">
+                <h1>태양광 경제성 분석 결과</h1>
+                <p>투자 방식별 맞춤 경제성 분석을 간편하게 확인하세요.</p>
+            </div>
         </div>
 
         <div class="card">
@@ -766,6 +906,17 @@
                     <div class="form-group">
                         <label>안전관리자 비용 (원/월)</label>
                         <input type="number" id="safetyCost" min="0" value="80000">
+                    </div>
+
+                    <div class="proposal-upload no-print" id="proposalUpload">
+                        <div class="proposal-upload-title">📎 사업 제안서 PDF 첨부 (선택사항)</div>
+                        <div class="proposal-upload-hint">첨부하면 제안서 뒤에 경제성 분석 결과가 이어진 합본 PDF로 저장됩니다 (20MB 이하 권장)</div>
+                        <input type="file" id="proposalFile" accept="application/pdf,.pdf" style="display:none;" onchange="handleProposalFile(this)">
+                        <button type="button" class="proposal-pick-btn" id="proposalPickBtn" onclick="document.getElementById('proposalFile').click()">파일 선택</button>
+                        <div class="proposal-file-row hidden" id="proposalFileRow">
+                            <span class="proposal-file-name" id="proposalFileName"></span>
+                            <button type="button" class="proposal-remove-btn" onclick="clearProposalFile()" title="첨부 제거">✕</button>
+                        </div>
                     </div>
 
                     <div class="button-group no-print">
@@ -1433,6 +1584,75 @@
             return slices;
         }
 
+        let proposalPdfBytes = null;
+
+        function handleProposalFile(input) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
+                alert('PDF 파일만 첨부할 수 있습니다.');
+                input.value = '';
+                return;
+            }
+            if (file.size > 20 * 1024 * 1024) {
+                const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+                if (!confirm('첨부 파일이 ' + sizeMb + 'MB 입니다. 20MB 이하를 권장하며, 용량이 크면 합치는 데 시간이 오래 걸릴 수 있습니다.\n계속할까요?')) {
+                    input.value = '';
+                    return;
+                }
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                proposalPdfBytes = new Uint8Array(e.target.result);
+                document.getElementById('proposalFileName').textContent = '📄 ' + file.name;
+                document.getElementById('proposalFileRow').classList.remove('hidden');
+                document.getElementById('proposalPickBtn').classList.add('hidden');
+                document.getElementById('proposalUpload').classList.add('has-file');
+            };
+            reader.onerror = function() {
+                alert('파일을 읽지 못했습니다. 다시 시도해주세요.');
+                clearProposalFile();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function clearProposalFile() {
+            proposalPdfBytes = null;
+            document.getElementById('proposalFile').value = '';
+            document.getElementById('proposalFileName').textContent = '';
+            document.getElementById('proposalFileRow').classList.add('hidden');
+            document.getElementById('proposalPickBtn').classList.remove('hidden');
+            document.getElementById('proposalUpload').classList.remove('has-file');
+        }
+
+        // 사업 제안서 PDF 뒤에 경제성 분석 PDF 페이지를 이어 붙인다
+        async function mergeProposalWithAnalysis(analysisPdfBuffer) {
+            const { PDFDocument } = window.PDFLib;
+            const mergedDoc = await PDFDocument.create();
+
+            const proposalDoc = await PDFDocument.load(proposalPdfBytes, { ignoreEncryption: true });
+            const proposalPages = await mergedDoc.copyPages(proposalDoc, proposalDoc.getPageIndices());
+            proposalPages.forEach(page => mergedDoc.addPage(page));
+
+            const analysisDoc = await PDFDocument.load(analysisPdfBuffer);
+            const analysisPages = await mergedDoc.copyPages(analysisDoc, analysisDoc.getPageIndices());
+            analysisPages.forEach(page => mergedDoc.addPage(page));
+
+            return await mergedDoc.save();
+        }
+
+        function downloadPdfBytes(bytes, fileName) {
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
         async function printSolar() {
             const resultsPanel = document.getElementById('results');
             if (resultsPanel.classList.contains('hidden')) {
@@ -1449,7 +1669,8 @@
                 const now = new Date();
                 const printDate = now.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
                 const fileDate = now.toISOString().slice(0, 10).replace(/-/g, '');
-                const fileName = `태양광경제성분석_${fileDate}.pdf`;
+                const analysisFileName = `태양광경제성분석_${fileDate}.pdf`;
+                const fileName = proposalPdfBytes ? `태양광사업제안_경제성분석_${fileDate}.pdf` : analysisFileName;
 
                 const location = document.querySelector('input[name="location"]:checked').value;
                 const capacity = parseFloat(document.getElementById('capacity').value) || 0;
@@ -1467,49 +1688,107 @@
                 const recValue = purpose === '판매용' ? `${recPrice.toLocaleString('ko-KR')}원 × ${recMultiplier}배` : '';
                 const currentMethod = selectedMethod || 'A';
 
+                // ===== 사업제안서(햇빛길Plus) 스타일 PDF 본문 구성 =====
+                const NAVY = '#1a3a5c';
+                const BANNER = '#1c3d6a';
+                const BLUE = '#2563eb';
+                const LINE = '#e5e7eb';
+                const PDF_WIDTH = 850;
+                const PDF_FONT = "'Malgun Gothic','맑은 고딕','Segoe UI',Tahoma,sans-serif";
+                const PDF_LOGO_SRC = 'logo.png';
+
+                const sectionTitle = (text) => `<div style="font-size:15px; font-weight:700; color:${NAVY}; padding-bottom:6px; border-bottom:2px solid ${NAVY}; margin-bottom:10px; letter-spacing:-0.3px;">${text}</div>`;
+                const labelCell = `padding:9px 12px; border:1px solid ${LINE}; background:#f8f9fa; color:#4b5563; font-weight:600;`;
+                const valueCell = `padding:9px 12px; border:1px solid ${LINE}; color:#111827;`;
+
+                // 입력 정보 요약 - 항목명/값 2열 테이블
+                const inputRows = [
+                    ['설치 유형', location],
+                    ['설치 용량', `${capacity.toLocaleString('ko-KR')} kW`],
+                    ['목적', purpose],
+                    ['투자 방식', methodNames[currentMethod]],
+                    ['설치비용', `${installCost.toLocaleString('ko-KR')} 원`],
+                    ['일일 발전시간', `${dailyHours.toLocaleString('ko-KR')} 시간`],
+                    [priceLabel, priceValue],
+                ];
+                if (recLabel) inputRows.push([recLabel, recValue]);
+                const inputHtml = '<table style="width:100%; border-collapse:collapse; font-size:13px;">'
+                    + inputRows.map(([k, v]) => `<tr><td style="${labelCell} width:26%;">${k}</td><td style="${valueCell}">${v}</td></tr>`).join('')
+                    + '</table>';
+
+                // 투자금액 상세 - 좌측 항목명, 우측 금액(파란색), 총 투자금액은 네이비 배경 강조
                 const breakdownItems = Array.from(document.querySelectorAll('#investmentBreakdown .breakdown-item'));
-                let investmentHtml = '<div style="background:#ffffff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden;">';
-                breakdownItems.forEach((item, idx) => {
+                let investmentHtml = '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                breakdownItems.forEach(item => {
                     const label = item.querySelector('.breakdown-label').textContent;
                     const value = item.querySelector('.breakdown-value').textContent;
-                    const isTotal = label === '총 투자금액';
-                    const isLast = idx === breakdownItems.length - 1;
-                    const rowBg = isTotal ? 'background:#f0eeff;' : '';
-                    const rowBorder = isLast ? '' : 'border-bottom:1px solid #eee;';
-                    investmentHtml += `<div class="pdf-card-row" style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px; ${rowBorder} ${rowBg}">
-                        <span style="font-size:18px; color:#666; ${isTotal ? 'font-weight:700;' : ''}">${label}</span>
-                        <span style="font-size:18px; color:#5b5fc7; font-weight:700;">${value}</span>
-                    </div>`;
+                    if (label === '총 투자금액') {
+                        investmentHtml += `<tr><td style="padding:11px 12px; border:1px solid ${NAVY}; background:${NAVY}; color:#ffffff; font-weight:700; width:40%;">${label}</td><td style="padding:11px 12px; border:1px solid ${NAVY}; background:${NAVY}; color:#ffffff; font-weight:700; font-size:15px; text-align:right;">${value}</td></tr>`;
+                    } else {
+                        investmentHtml += `<tr><td style="${labelCell} width:40%;">${label}</td><td style="padding:9px 12px; border:1px solid ${LINE}; color:${BLUE}; font-weight:700; text-align:right;">${value}</td></tr>`;
+                    }
                 });
-                investmentHtml += '</div>';
+                investmentHtml += '</table>';
 
-                let summaryHtml = '<div id="pdfSummaryGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">';
+                // 요약 결과 - 카드 대신 2열 테이블, 투자회수시점(손익분기점)은 파란색 배경 강조
+                let summaryHtml = '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
                 document.querySelectorAll('#results .result-card').forEach(card => {
                     if (card.classList.contains('hidden')) return;
                     const label = card.querySelector('h3').textContent;
                     const value = card.querySelector('.value').textContent;
                     const unit = card.querySelector('.unit').textContent;
-                    summaryHtml += `<div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius:12px; padding:22px; text-align:center;">
-                        <div style="color:#ffffff; font-size:18px; opacity:0.9;">${label}</div>
-                        <div style="color:#ffffff; font-size:28px; font-weight:700; margin-top:10px;">${value}</div>
-                        <div style="color:#ffffff; font-size:18px; opacity:0.85; margin-top:6px;">${unit}</div>
-                    </div>`;
+                    const text = unit ? `${value} ${unit}` : value;
+                    if (label === '투자회수시점') {
+                        summaryHtml += `<tr><td style="padding:12px; border:1px solid ${BLUE}; background:${BLUE}; color:#ffffff; font-weight:700; width:40%;">${label}</td><td style="padding:12px; border:1px solid ${BLUE}; background:${BLUE}; color:#ffffff; font-weight:700; font-size:18px; text-align:right;">${text}</td></tr>`;
+                    } else {
+                        summaryHtml += `<tr><td style="${labelCell} width:40%;">${label}</td><td style="padding:12px; border:1px solid ${LINE}; color:${BLUE}; font-weight:700; font-size:18px; text-align:right;">${text}</td></tr>`;
+                    }
                 });
-                summaryHtml += '</div>';
+                summaryHtml += '</table>';
 
+                // 연도별 상세 분석 - 네이비 헤더, 짝수 행 연회색, 손익분기점 행 파란색 강조
                 const visibleHeaders = Array.from(document.querySelectorAll('#resultsTable thead th')).filter(th => !th.classList.contains('hidden'));
                 const colCount = visibleHeaders.length;
-                let yearTableHtml = `<table id="pdfYearTable" style="width:100%; border-collapse:collapse; font-size:18px; table-layout:fixed;">`;
-                yearTableHtml += '<thead id="pdfYearTableHead"><tr style="background:#5b5fc7; color:#ffffff;">' + visibleHeaders.map(th => `<th style="padding:10px; border:1px solid #ddd; font-weight:700; font-size:16px; width:${(100 / colCount).toFixed(2)}%;">${th.textContent}</th>`).join('') + '</tr></thead><tbody>';
+                let yearTableHtml = `<table id="pdfYearTable" style="width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed;">`;
+                yearTableHtml += '<thead id="pdfYearTableHead"><tr>' + visibleHeaders.map((th, i) => `<th style="padding:10px 6px; border:1px solid ${NAVY}; background:${NAVY}; color:#ffffff; font-weight:700; font-size:13px; text-align:${i === 0 ? 'center' : 'right'}; width:${(100 / colCount).toFixed(2)}%;">${th.textContent}</th>`).join('') + '</tr></thead><tbody>';
                 document.querySelectorAll('#tableBody tr').forEach((row, idx) => {
-                    const cells = Array.from(row.children).filter(cell => !cell.classList.contains('hidden')).map(cell => `<td style="padding:10px; border:1px solid #ddd; text-align:right;">${cell.innerHTML}</td>`).join('');
-                    let rowStyle = idx % 2 === 1 ? 'background:#f8f9fa;' : '';
-                    if (row.classList.contains('break-even')) {
-                        rowStyle = 'background:#fff3cd; font-weight:700;';
-                    }
-                    yearTableHtml += `<tr style="${rowStyle}">${cells}</tr>`;
+                    const isBreakEven = row.classList.contains('break-even');
+                    const cellBase = isBreakEven
+                        ? `padding:10px 6px; border:1px solid ${BLUE}; background:${BLUE}; color:#ffffff; font-weight:700;`
+                        : `padding:10px 6px; border:1px solid ${LINE}; color:#111827;` + (idx % 2 === 1 ? ' background:#f8f9fa;' : '');
+                    const cells = Array.from(row.children).filter(cell => !cell.classList.contains('hidden'))
+                        .map((cell, i) => `<td style="${cellBase} text-align:${i === 0 ? 'center' : 'right'};">${cell.innerHTML}</td>`).join('');
+                    yearTableHtml += `<tr>${cells}</tr>`;
                 });
                 yearTableHtml += '</tbody></table>';
+
+                // 상단 헤더(좌: 로고 / 우: 제목·출력일자)와 하단 면책조항
+                // 네이비 배너는 첫 페이지에만 넣고, 연도별 분석 페이지는 상단 바만 사용
+                const pdfBanner = `
+                        <div style="background:${BANNER}; padding:15px 20px;">
+                            <div style="color:#ffffff; font-size:20px; font-weight:700; letter-spacing:-0.5px;">태양광 경제성 분석 결과</div>
+                            <div style="color:#ffffff; font-size:13px; opacity:0.85; margin-top:5px;">분석일자 ${printDate} · 20년 기준 경제성 시뮬레이션</div>
+                        </div>`;
+                const pdfHeader = (withBanner) => `
+                    <div style="margin-bottom:22px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; padding-bottom:14px; border-bottom:1px solid ${LINE};">
+                            <div>
+                                <img src="${PDF_LOGO_SRC}" alt="햇빛길Plus" style="height:55px; width:auto; display:block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <div style="display:none; font-size:28px; font-weight:800; color:${NAVY}; letter-spacing:-1px;">햇빛길<span style="color:${BLUE};">Plus</span></div>
+                            </div>
+                            <div style="text-align:right; font-size:11px; color:#6b7280; line-height:1.7;">
+                                <div>${printDate}</div>
+                                <div>태양광 발전 경제성 분석 리포트</div>
+                            </div>
+                        </div>
+                        ${withBanner ? pdfBanner : ''}
+                    </div>`;
+                const pdfFooter = `
+                    <div style="margin-top:16px; padding-top:10px; border-top:1px solid ${LINE}; font-size:10px; color:#9ca3af; line-height:1.7;">
+                        본 결과는 참고용이며 실제 설치 시 전문가 상담을 권장합니다.<br>
+                        Generated by 햇빛길Plus | 출력일자 ${printDate}
+                    </div>`;
+                const sectionStyle = `width:${PDF_WIDTH}px; background:#ffffff; color:#111827; font-family:${PDF_FONT};`;
 
                 const printSection = document.getElementById('printSection');
                 printSection.style.position = 'absolute';
@@ -1518,29 +1797,28 @@
                 printSection.style.display = 'block';
                 printSection.style.background = '#ffffff';
                 printSection.innerHTML = `
-                    <div id="pdfTopSection" style="width:1200px; padding:24px; background:#ffffff; color:#333; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-                        <div style="text-align:center; margin-bottom:20px;">
-                            <div style="font-size:30px; font-weight:700; color:#2f4d91;">☀️ 태양광 경제성 분석 결과</div>
-                            <div style="margin-top:8px; color:#555; font-size:15px;">출력일자: ${printDate}</div>
-                        </div>
-                        <div style="margin-bottom:14px;">
-                            <div style="font-size:20px; font-weight:700; margin-bottom:10px; color:#2f4d91;">📝 입력 정보 요약</div>
-                            <table style="width:100%; border-collapse:collapse; font-size:18px;">
-                                <tr><td style="padding:14px; border:1px solid #ddd; font-weight:700; width:28%;">설치 유형</td><td style="padding:14px; border:1px solid #ddd;">${location}</td><td style="padding:14px; border:1px solid #ddd; font-weight:700; width:28%;">설치 용량</td><td style="padding:14px; border:1px solid #ddd;">${capacity.toLocaleString('ko-KR')} kW</td></tr>
-                                <tr style="background:#f7f9ff;"><td style="padding:14px; border:1px solid #ddd; font-weight:700;">목적</td><td style="padding:14px; border:1px solid #ddd;">${purpose}</td><td style="padding:14px; border:1px solid #ddd; font-weight:700;">투자 방식</td><td style="padding:14px; border:1px solid #ddd;">${methodNames[currentMethod]}</td></tr>
-                                <tr><td style="padding:14px; border:1px solid #ddd; font-weight:700;">설치비용</td><td style="padding:14px; border:1px solid #ddd;">${installCost.toLocaleString('ko-KR')} 원</td><td style="padding:14px; border:1px solid #ddd; font-weight:700;">일일 발전시간</td><td style="padding:14px; border:1px solid #ddd;">${dailyHours.toLocaleString('ko-KR')} 시간</td></tr>
-                                <tr style="background:#f7f9ff;"><td style="padding:14px; border:1px solid #ddd; font-weight:700;">${priceLabel}</td><td style="padding:14px; border:1px solid #ddd;">${priceValue}</td><td style="padding:14px; border:1px solid #ddd; font-weight:700;">${recLabel}</td><td style="padding:14px; border:1px solid #ddd;">${recValue}</td></tr>
-                            </table>
-                        </div>
-                        <div style="margin-bottom:14px;"><div style="font-size:20px; font-weight:700; margin-bottom:10px; color:#2f4d91;">💰 투자금액 상세</div>${investmentHtml}</div>
-                        <div><div style="font-size:20px; font-weight:700; margin-bottom:10px; color:#2f4d91;">📊 요약 결과</div>${summaryHtml}</div>
+                    <div id="pdfTopSection" style="${sectionStyle}">
+                        ${pdfHeader(true)}
+                        <div style="margin-bottom:22px;">${sectionTitle('입력 정보 요약')}${inputHtml}</div>
+                        <div style="margin-bottom:22px;">${sectionTitle('투자금액 상세')}${investmentHtml}</div>
+                        <div>${sectionTitle('요약 결과')}${summaryHtml}</div>
                     </div>
-                    <div id="pdfTableSection" style="width:1200px; padding:24px; background:#ffffff; color:#333; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-                        <div id="pdfTableTitle" style="font-size:20px; font-weight:700; margin-bottom:10px; color:#2f4d91;">📋 연도별 상세 분석</div>
+                    <div id="pdfTableSection" style="${sectionStyle}">
+                        ${pdfHeader(false)}
+                        <div id="pdfTableTitle">${sectionTitle('연도별 상세 분석')}</div>
                         ${yearTableHtml}
+                        ${pdfFooter}
                     </div>
                 `;
 
+                // 로고 등 이미지가 다 그려진 뒤에 캡처해야 PDF에 빠지지 않는다
+                await Promise.all(Array.from(printSection.querySelectorAll('img')).map(img => {
+                    if (img.complete) return Promise.resolve();
+                    return new Promise(resolve => {
+                        img.addEventListener('load', resolve, { once: true });
+                        img.addEventListener('error', resolve, { once: true });
+                    });
+                }));
                 await new Promise(resolve => setTimeout(resolve, 300));
 
                 const { jsPDF } = window.jspdf;
@@ -1551,13 +1829,9 @@
                 const maxWidth = pageWidth - margin * 2;
                 const maxHeight = pageHeight - margin * 2;
 
-                // 1페이지(이상): 입력정보요약 + 투자금액 상세 + 요약 결과 - 페이지 폭에 맞춰 원본 크기로, 행/카드 경계 기준으로 분할
+                // 1페이지(이상): 입력정보요약 + 투자금액 상세 + 요약 결과 - 페이지 폭에 맞춰 원본 크기로, 표 행 경계 기준으로 분할
                 const topSection = document.getElementById('pdfTopSection');
-                const topBreakEls = [
-                    ...Array.from(topSection.querySelectorAll('table tr')),
-                    ...Array.from(topSection.querySelectorAll('.pdf-card-row')),
-                    topSection.querySelector('#pdfSummaryGrid'),
-                ].filter(Boolean);
+                const topBreakEls = Array.from(topSection.querySelectorAll('table tr'));
                 const topSlices = await renderSlicesToPdf(topSection, topBreakEls, null, maxWidth, maxHeight);
                 topSlices.forEach((slice, i) => {
                     if (i > 0) pdf.addPage();
@@ -1574,7 +1848,19 @@
                     pdf.addImage(slice.dataUrl, 'JPEG', margin, margin, maxWidth, slice.heightMm);
                 });
 
-                pdf.save(fileName);
+                if (proposalPdfBytes) {
+                    button.textContent = 'PDF 합치는 중...';
+                    try {
+                        const mergedBytes = await mergeProposalWithAnalysis(pdf.output('arraybuffer'));
+                        downloadPdfBytes(mergedBytes, fileName);
+                    } catch (mergeError) {
+                        console.error(mergeError);
+                        alert('사업 제안서 PDF를 불러오지 못해 경제성 분석 결과만 저장합니다.\n(암호가 걸려 있거나 손상된 파일인지 확인해주세요.)');
+                        pdf.save(analysisFileName);
+                    }
+                } else {
+                    pdf.save(fileName);
+                }
             } catch (error) {
                 console.error(error);
                 alert('PDF 저장 중 오류가 발생했습니다. 콘솔을 확인해주세요.');
@@ -1587,6 +1873,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('headerDate').textContent = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
             updateConnectionFee();
             updateElectricityPrice();
             updateSubsidyRateB1();
