@@ -63,6 +63,11 @@
             border: 1px solid rgba(255,255,255,0.8);
         }
 
+        /* 상단에 바로 쌓이는 카드끼리 간격 확보 (그리드 안쪽 카드는 gap으로 처리) */
+        .container > .card {
+            margin-bottom: 30px;
+        }
+
         .card h2 {
             color: #667eea;
             margin-bottom: 20px;
@@ -692,8 +697,8 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>설치단가 (원/kW)</label>
-                            <input type="number" id="unitPrice" min="0" value="1000000" onchange="updateModeUI()">
+                            <label>설치비용 (원)</label>
+                            <input type="number" id="installCost" min="0" value="100000000" onchange="updateModeUI()">
                         </div>
                         <div class="form-group" id="connectionFeeGroup">
                             <label>계통연계비 (원)</label>
@@ -726,17 +731,17 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label>SMP 단가 (원/kWh)</label>
-                                <input type="number" id="smpPrice" min="0" step="0.1" value="135.6">
+                                <input type="number" id="smpPrice" min="0" step="0.1" value="180">
                             </div>
                             <div class="form-group">
                                 <label>REC 단가 (원/kWh)</label>
-                                <input type="number" id="recPrice" min="0" step="0.1" value="67">
+                                <input type="number" id="recPrice" min="0" step="0.1" value="0">
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>REC 배수 (배)</label>
-                                <input type="number" id="recMultiplier" min="0" step="0.1" value="1.5">
+                                <input type="number" id="recMultiplier" min="0" step="0.1" value="1.0">
                             </div>
                         </div>
                     </div>
@@ -749,11 +754,12 @@
                                 <option value="120" selected>고압 일반용 (산업용)</option>
                                 <option value="110">선택약정 할인</option>
                                 <option value="140">시간대별 요금제</option>
+                                <option value="custom">직접입력</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label>한전요금단가 (원/kWh)</label>
-                            <input type="number" id="electricityPrice" min="0" step="0.1" value="120" readonly>
+                            <input type="number" id="electricityPrice" min="0" step="0.1" value="120" oninput="markElectricityPriceManual()">
                         </div>
                     </div>
 
@@ -936,11 +942,10 @@
         }
 
         function getCurrentTotalInvestment() {
-            const capacity = parseFloat(document.getElementById('capacity').value) || 0;
-            const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
+            const installCost = parseFloat(document.getElementById('installCost').value) || 0;
             const purpose = document.querySelector('input[name="purpose"]:checked').value;
             const connectionFee = purpose === '판매용' ? (parseFloat(document.getElementById('connectionFee').value) || 0) : 0;
-            return capacity * unitPrice + connectionFee;
+            return installCost + connectionFee;
         }
 
         function updateB2Amounts() {
@@ -1035,7 +1040,16 @@
         function updateElectricityPrice() {
             const planSelect = document.getElementById('electricityPlan');
             const priceInput = document.getElementById('electricityPrice');
+            if (planSelect.value === 'custom') {
+                priceInput.focus();
+                priceInput.select();
+                return;
+            }
             priceInput.value = planSelect.value;
+        }
+
+        function markElectricityPriceManual() {
+            document.getElementById('electricityPlan').value = 'custom';
         }
 
         function calculateLoanScheduleMonthly(principal, rate, term, grace) {
@@ -1104,13 +1118,12 @@
 
         function calculateSolar() {
             const capacity = parseFloat(document.getElementById('capacity').value) || 0;
-            const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
             const purpose = document.querySelector('input[name="purpose"]:checked').value;
             const connectionFee = purpose === '판매용' ? (parseFloat(document.getElementById('connectionFee').value) || 0) : 0;
             const dailyHours = parseFloat(document.getElementById('dailyHours').value) || 0;
             const safetyCost = parseFloat(document.getElementById('safetyCost').value) || 0;
             const sellMode = purpose === '판매용';
-            const installCost = capacity * unitPrice;
+            const installCost = parseFloat(document.getElementById('installCost').value) || 0;
             let actualInvestment = 0;
             let loanPrincipal = 0;
             let totalInterestCost = 0;
@@ -1442,7 +1455,7 @@
                 const capacity = parseFloat(document.getElementById('capacity').value) || 0;
                 const purpose = document.querySelector('input[name="purpose"]:checked').value;
                 const methodNames = { A: '자기자본 투자', B1: 'B-1. 건물지원사업 (보조금)', B2: 'B-2. 금융지원사업 (저금리 융자)', C: '무자본 팩토링' };
-                const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
+                const installCost = parseFloat(document.getElementById('installCost').value) || 0;
                 const dailyHours = parseFloat(document.getElementById('dailyHours').value) || 0;
                 const electricityPrice = parseFloat(document.getElementById('electricityPrice').value) || 0;
                 const smpPrice = parseFloat(document.getElementById('smpPrice').value) || 0;
@@ -1515,7 +1528,7 @@
                             <table style="width:100%; border-collapse:collapse; font-size:18px;">
                                 <tr><td style="padding:14px; border:1px solid #ddd; font-weight:700; width:28%;">설치 유형</td><td style="padding:14px; border:1px solid #ddd;">${location}</td><td style="padding:14px; border:1px solid #ddd; font-weight:700; width:28%;">설치 용량</td><td style="padding:14px; border:1px solid #ddd;">${capacity.toLocaleString('ko-KR')} kW</td></tr>
                                 <tr style="background:#f7f9ff;"><td style="padding:14px; border:1px solid #ddd; font-weight:700;">목적</td><td style="padding:14px; border:1px solid #ddd;">${purpose}</td><td style="padding:14px; border:1px solid #ddd; font-weight:700;">투자 방식</td><td style="padding:14px; border:1px solid #ddd;">${methodNames[currentMethod]}</td></tr>
-                                <tr><td style="padding:14px; border:1px solid #ddd; font-weight:700;">설치 단가</td><td style="padding:14px; border:1px solid #ddd;">${unitPrice.toLocaleString('ko-KR')} 원/kW</td><td style="padding:14px; border:1px solid #ddd; font-weight:700;">일일 발전시간</td><td style="padding:14px; border:1px solid #ddd;">${dailyHours.toLocaleString('ko-KR')} 시간</td></tr>
+                                <tr><td style="padding:14px; border:1px solid #ddd; font-weight:700;">설치비용</td><td style="padding:14px; border:1px solid #ddd;">${installCost.toLocaleString('ko-KR')} 원</td><td style="padding:14px; border:1px solid #ddd; font-weight:700;">일일 발전시간</td><td style="padding:14px; border:1px solid #ddd;">${dailyHours.toLocaleString('ko-KR')} 시간</td></tr>
                                 <tr style="background:#f7f9ff;"><td style="padding:14px; border:1px solid #ddd; font-weight:700;">${priceLabel}</td><td style="padding:14px; border:1px solid #ddd;">${priceValue}</td><td style="padding:14px; border:1px solid #ddd; font-weight:700;">${recLabel}</td><td style="padding:14px; border:1px solid #ddd;">${recValue}</td></tr>
                             </table>
                         </div>
