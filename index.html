@@ -954,7 +954,12 @@
                         <div class="unit" id="totalFinanceCostUnit">원</div>
                     </div>
                     <div class="result-card">
-                        <h3>순수익</h3>
+                        <h3>20년 누적이익</h3>
+                        <div class="value" id="totalIncome">-</div>
+                        <div class="unit" id="totalIncomeUnit">원</div>
+                    </div>
+                    <div class="result-card">
+                        <h3>순수익 (20년 총 현금흐름)</h3>
                         <div class="value" id="profitExcludingFinance">-</div>
                         <div class="unit" id="profitExcludingFinanceUnit">원</div>
                     </div>
@@ -974,9 +979,11 @@
                             <th>용량 (kW)</th>
                             <th>발전량 (kWh)</th>
                             <th>발전수익 (원)</th>
-                            <th id="principalHeader" class="payment-col hidden">원금상환액+이자 (원)</th>
+                            <th>안전관리자비용 (원)</th>
+                            <th id="principalHeader" class="payment-col hidden">원금상환액 (원)</th>
+                            <th id="interestHeader" class="payment-col hidden">이자 (원)</th>
                             <th>순수익 (원)</th>
-                            <th>누적 순수익 (원)</th>
+                            <th>누적이익 (원)</th>
                             <th>투자대비수익률 (%)</th>
                         </tr>
                     </thead>
@@ -1401,7 +1408,10 @@
                 (selectedMethod === 'B' && selectedSubMethod === 'B2') ||
                 (selectedMethod === 'A' && document.getElementById('loanUsedA').checked);
             const results = [];
-            let cumulativeProfit = -actualInvestment;
+            // 누적이익: 원금상환은 자산(투자금) 회수이므로 제외하고 이자만 비용으로 본다
+            let cumulativeIncome = 0;
+            // 누적 현금흐름: 원금+이자를 모두 뺀 실제 손에 남는 금액
+            let cumulativeCashFlow = 0;
             let totalRevenue = 0;
             let breakEvenYear = null;
             for (let year = 1; year <= 20; year++) {
@@ -1475,27 +1485,30 @@
                     }
                 }
                 const netProfit = annualRevenue - currentSafetyCost - paymentAmount;
-                cumulativeProfit += netProfit;
-                const roiPercent = actualInvestment > 0 ? (cumulativeProfit / actualInvestment) * 100 : 0;
+                const incomeProfit = annualRevenue - currentSafetyCost - paymentInterest;
+                cumulativeCashFlow += netProfit;
+                cumulativeIncome += incomeProfit;
+                const roiPercent = actualInvestment > 0 ? (cumulativeIncome / actualInvestment) * 100 : 0;
                 results.push({
                     year,
                     capacity: currentCapacity,
                     production,
                     revenue: annualRevenue,
+                    safetyCost: currentSafetyCost,
                     payment: paymentAmount,
                     interest: paymentInterest,
                     principal: paymentPrincipal,
                     remaining: paymentRemaining,
                     loanStatus,
                     netProfit,
-                    cumulative: cumulativeProfit,
+                    cumulative: cumulativeIncome,
                     roi: roiPercent
                 });
-                if (breakEvenYear === null && cumulativeProfit >= 0) {
+                // 투자회수시점: 누적이익이 총 투자금액을 넘어서는 해
+                if (breakEvenYear === null && cumulativeIncome >= actualInvestment) {
                     breakEvenYear = year;
                 }
             }
-            const finalNetProfit = totalRevenue - actualInvestment - (hasLoan ? totalFinanceCost : 0);
             document.getElementById('results').classList.remove('hidden');
             document.getElementById('results').classList.add('fade-in');
             document.getElementById('breakEven').textContent = breakEvenYear || '20년 초과';
@@ -1505,7 +1518,8 @@
             setAdaptiveAmount('avgProfit', 'avgProfitUnit', totalRevenue / 20);
             document.getElementById('totalFinanceCostCard').classList.toggle('hidden', !hasLoan);
             setAdaptiveAmount('totalFinanceCost', 'totalFinanceCostUnit', totalFinanceCost);
-            setAdaptiveAmount('profitExcludingFinance', 'profitExcludingFinanceUnit', finalNetProfit);
+            setAdaptiveAmount('totalIncome', 'totalIncomeUnit', cumulativeIncome);
+            setAdaptiveAmount('profitExcludingFinance', 'profitExcludingFinanceUnit', cumulativeCashFlow);
             const tableBody = document.getElementById('tableBody');
             tableBody.innerHTML = '';
             results.forEach(result => {
@@ -1514,18 +1528,23 @@
                     row.classList.add('break-even');
                 }
                 const ls = result.loanStatus;
-                let principalInterestCell = '-';
+                let principalCell = '-';
+                let interestCell = '-';
                 if (ls === 'done') {
-                    principalInterestCell = '0원';
+                    principalCell = '0원';
+                    interestCell = '0원';
                 } else if (ls === 'grace' || ls === 'repay') {
-                    principalInterestCell = formatCurrency(result.payment);
+                    principalCell = formatCurrency(result.principal);
+                    interestCell = formatCurrency(result.interest);
                 }
                 row.innerHTML = `
                     <td>${result.year}</td>
                     <td>${result.capacity.toFixed(1)}</td>
                     <td>${formatNumber(result.production)}</td>
                     <td>${formatCurrency(result.revenue)}</td>
-                    <td class="payment-col">${principalInterestCell}</td>
+                    <td>${formatCurrency(result.safetyCost)}</td>
+                    <td class="payment-col">${principalCell}</td>
+                    <td class="payment-col">${interestCell}</td>
                     <td>${formatCurrency(result.netProfit)}</td>
                     <td>${formatCurrency(result.cumulative)}</td>
                     <td>${result.roi.toFixed(1)}%</td>
@@ -1835,13 +1854,13 @@
                 // 연도별 상세 분석 - 네이비 헤더, 짝수 행 연회색, 손익분기점 행 파란색 강조
                 const visibleHeaders = Array.from(document.querySelectorAll('#resultsTable thead th')).filter(th => !th.classList.contains('hidden'));
                 const colCount = visibleHeaders.length;
-                let yearTableHtml = `<table id="pdfYearTable" style="width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed;">`;
-                yearTableHtml += '<thead id="pdfYearTableHead"><tr>' + visibleHeaders.map((th, i) => `<th style="padding:10px 6px; border:1px solid ${NAVY}; background:${NAVY}; color:#ffffff; font-weight:700; font-size:13px; text-align:${i === 0 ? 'center' : 'right'}; width:${(100 / colCount).toFixed(2)}%;">${th.textContent}</th>`).join('') + '</tr></thead><tbody>';
+                let yearTableHtml = `<table id="pdfYearTable" style="width:100%; border-collapse:collapse; font-size:11px; table-layout:fixed;">`;
+                yearTableHtml += '<thead id="pdfYearTableHead"><tr>' + visibleHeaders.map((th, i) => `<th style="padding:8px 4px; border:1px solid ${NAVY}; background:${NAVY}; color:#ffffff; font-weight:700; font-size:11px; text-align:${i === 0 ? 'center' : 'right'}; width:${(100 / colCount).toFixed(2)}%;">${th.textContent}</th>`).join('') + '</tr></thead><tbody>';
                 document.querySelectorAll('#tableBody tr').forEach((row, idx) => {
                     const isBreakEven = row.classList.contains('break-even');
                     const cellBase = isBreakEven
-                        ? `padding:10px 6px; border:1px solid ${BLUE}; background:${BLUE}; color:#ffffff; font-weight:700;`
-                        : `padding:10px 6px; border:1px solid ${LINE}; color:#111827;` + (idx % 2 === 1 ? ' background:#f8f9fa;' : '');
+                        ? `padding:8px 4px; border:1px solid ${BLUE}; background:${BLUE}; color:#ffffff; font-weight:700;`
+                        : `padding:8px 4px; border:1px solid ${LINE}; color:#111827;` + (idx % 2 === 1 ? ' background:#f8f9fa;' : '');
                     const cells = Array.from(row.children).filter(cell => !cell.classList.contains('hidden'))
                         .map((cell, i) => `<td style="${cellBase} text-align:${i === 0 ? 'center' : 'right'};">${cell.innerHTML}</td>`).join('');
                     yearTableHtml += `<tr>${cells}</tr>`;
