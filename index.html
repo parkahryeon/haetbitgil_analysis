@@ -7,6 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -932,7 +933,7 @@
 
                 <h2>📊 요약 결과</h2>
                 <div id="results" class="result-grid hidden">
-                    <div class="result-card">
+                    <div class="result-card" id="breakEvenCard">
                         <h3>투자회수시점</h3>
                         <div class="value" id="breakEven">-</div>
                         <div class="unit">년</div>
@@ -1498,6 +1499,8 @@
             document.getElementById('results').classList.remove('hidden');
             document.getElementById('results').classList.add('fade-in');
             document.getElementById('breakEven').textContent = breakEvenYear || '20년 초과';
+            // 대출/금융이 포함된 방식(A-대출사용, B-2 금융지원, C 무자본 팩토링)에서는 투자회수시점을 표시하지 않는다
+            document.getElementById('breakEvenCard').classList.toggle('hidden', hasLoan);
             setAdaptiveAmount('totalProfit', 'totalProfitUnit', totalRevenue);
             setAdaptiveAmount('avgProfit', 'avgProfitUnit', totalRevenue / 20);
             document.getElementById('totalFinanceCostCard').classList.toggle('hidden', !hasLoan);
@@ -1534,8 +1537,13 @@
             });
         }
 
+        // 출력 해상도/압축률 - 850px 기준 작성 폭이 A4 190mm로 들어가므로
+        // scale 1.5면 약 170DPI. 값을 올리면 선명해지지만 파일이 커진다.
+        const PDF_RENDER_SCALE = 1.5;
+        const PDF_JPEG_QUALITY = 0.7;
+
         async function renderSlicesToPdf(container, breakElements, repeatHeaderElement, maxWidth, maxHeight) {
-            const htmlScale = 2;
+            const htmlScale = PDF_RENDER_SCALE;
             const canvas = await html2canvas(container, { scale: htmlScale, useCORS: true, backgroundColor: '#ffffff' });
             const pxToMm = maxWidth / canvas.width;
             const pageHeightPx = maxHeight / pxToMm;
@@ -1577,7 +1585,7 @@
                     ctx.drawImage(canvas, 0, yStart, canvas.width, sliceHeightPx, 0, headerHeightPx, canvas.width, sliceHeightPx);
                 }
 
-                slices.push({ dataUrl: outCanvas.toDataURL('image/jpeg', 0.85), heightMm: outCanvas.height * pxToMm });
+                slices.push({ dataUrl: outCanvas.toDataURL('image/jpeg', PDF_JPEG_QUALITY), heightMm: outCanvas.height * pxToMm });
                 yStart = yEnd;
                 pageIndex++;
             }
@@ -1625,14 +1633,92 @@
             document.getElementById('proposalUpload').classList.remove('has-file');
         }
 
-        // 사업 제안서 PDF 뒤에 경제성 분석 PDF 페이지를 이어 붙인다
-        async function mergeProposalWithAnalysis(analysisPdfBuffer) {
+        // 합본 PDF 목표 용량. 제안서를 이 범위에 맞춰 다시 인코딩한다.
+        const PDF_TARGET_BYTES = 1000 * 1024;
+        const PROPOSAL_MIN_BUDGET = 200 * 1024;
+        // 위에서부터 차례로 시도하고, 예산을 넘으면 다음(더 낮은 화질) 설정으로 넘어간다
+        const PROPOSAL_QUALITY_STEPS = [
+            { scale: 1.5, quality: 0.6 },
+            { scale: 1.2, quality: 0.55 },
+            { scale: 1.0, quality: 0.5 },
+            { scale: 0.8, quality: 0.45 },
+            { scale: 0.65, quality: 0.4 },
+            { scale: 0.5, quality: 0.35 },
+        ];
+
+        function dataUrlToBytes(dataUrl) {
+            const binary = atob(dataUrl.split(',')[1]);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return bytes;
+        }
+
+        // 제안서 각 페이지를 이미지로 다시 그려 용량을 줄인다. 예산 안에 못 맞추면 null.
+        async function renderProposalAsImages(budgetBytes, onProgress) {
+            if (!window.pdfjsLib) return null;
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            // pdf.js가 버퍼를 가져가므로 원본은 그대로 두고 복사본을 넘긴다
+            const doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(proposalPdfBytes) }).promise;
+            const pageCount = doc.numPages;
+
+            for (let step = 0; step < PROPOSAL_QUALITY_STEPS.length; step++) {
+                const { scale, quality } = PROPOSAL_QUALITY_STEPS[step];
+                const rendered = [];
+                let total = 0;
+                let overBudget = false;
+
+                for (let i = 1; i <= pageCount; i++) {
+                    if (onProgress) onProgress(i, pageCount, step + 1);
+                    const page = await doc.getPage(i);
+                    const viewport = page.getViewport({ scale });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.max(1, Math.ceil(viewport.width));
+                    canvas.height = Math.max(1, Math.ceil(viewport.height));
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    await page.render({ canvasContext: ctx, viewport }).promise;
+
+                    const bytes = dataUrlToBytes(canvas.toDataURL('image/jpeg', quality));
+                    total += bytes.length;
+                    const original = page.getViewport({ scale: 1 });
+                    rendered.push({ bytes, width: original.width, height: original.height });
+
+                    if (total > budgetBytes && step < PROPOSAL_QUALITY_STEPS.length - 1) {
+                        overBudget = true;
+                        break;
+                    }
+                }
+
+                if (!overBudget) return rendered;
+            }
+            return null;
+        }
+
+        // 사업 제안서 뒤에 경제성 분석 PDF 페이지를 이어 붙인다 (제안서는 용량에 맞춰 재인코딩)
+        async function mergeProposalWithAnalysis(analysisPdfBuffer, onProgress) {
             const { PDFDocument } = window.PDFLib;
             const mergedDoc = await PDFDocument.create();
 
-            const proposalDoc = await PDFDocument.load(proposalPdfBytes, { ignoreEncryption: true });
-            const proposalPages = await mergedDoc.copyPages(proposalDoc, proposalDoc.getPageIndices());
-            proposalPages.forEach(page => mergedDoc.addPage(page));
+            const budget = Math.max(PDF_TARGET_BYTES - analysisPdfBuffer.byteLength - 50 * 1024, PROPOSAL_MIN_BUDGET);
+            let imagePages = null;
+            try {
+                imagePages = await renderProposalAsImages(budget, onProgress);
+            } catch (error) {
+                console.error('제안서 재인코딩 실패, 원본을 그대로 사용합니다:', error);
+            }
+
+            if (imagePages) {
+                for (const item of imagePages) {
+                    const jpg = await mergedDoc.embedJpg(item.bytes);
+                    const page = mergedDoc.addPage([item.width, item.height]);
+                    page.drawImage(jpg, { x: 0, y: 0, width: item.width, height: item.height });
+                }
+            } else {
+                const proposalDoc = await PDFDocument.load(proposalPdfBytes, { ignoreEncryption: true });
+                const proposalPages = await mergedDoc.copyPages(proposalDoc, proposalDoc.getPageIndices());
+                proposalPages.forEach(page => mergedDoc.addPage(page));
+            }
 
             const analysisDoc = await PDFDocument.load(analysisPdfBuffer);
             const analysisPages = await mergedDoc.copyPages(analysisDoc, analysisDoc.getPageIndices());
@@ -1822,7 +1908,7 @@
                 await new Promise(resolve => setTimeout(resolve, 300));
 
                 const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+                const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
                 const pageWidth = pdf.internal.pageSize.getWidth();
                 const pageHeight = pdf.internal.pageSize.getHeight();
                 const margin = 10;
@@ -1848,10 +1934,16 @@
                     pdf.addImage(slice.dataUrl, 'JPEG', margin, margin, maxWidth, slice.heightMm);
                 });
 
+                const analysisBuffer = pdf.output('arraybuffer');
+                const toKb = bytes => Math.round(bytes / 1024).toLocaleString('ko-KR') + 'KB';
+
                 if (proposalPdfBytes) {
                     button.textContent = 'PDF 합치는 중...';
                     try {
-                        const mergedBytes = await mergeProposalWithAnalysis(pdf.output('arraybuffer'));
+                        const mergedBytes = await mergeProposalWithAnalysis(analysisBuffer, (done, totalPages) => {
+                            button.textContent = `제안서 압축 중... (${done}/${totalPages})`;
+                        });
+                        console.log(`PDF 용량 - 제안서 ${toKb(proposalPdfBytes.byteLength)} + 분석결과 ${toKb(analysisBuffer.byteLength)} = 합본 ${toKb(mergedBytes.byteLength)}`);
                         downloadPdfBytes(mergedBytes, fileName);
                     } catch (mergeError) {
                         console.error(mergeError);
@@ -1859,6 +1951,7 @@
                         pdf.save(analysisFileName);
                     }
                 } else {
+                    console.log(`PDF 용량 - 분석결과 ${toKb(analysisBuffer.byteLength)}`);
                     pdf.save(fileName);
                 }
             } catch (error) {
