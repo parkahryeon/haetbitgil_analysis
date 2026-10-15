@@ -1443,7 +1443,8 @@
                 }
                 annualRevenue *= warrantyFactor;
                 totalRevenue += annualRevenue;
-                const currentSafetyCost = safetyCost * 12 * Math.pow(1.01, year - 1);
+                // 안전관리자 비용은 물가상승 없이 매년 동일한 고정비로 본다
+                const currentSafetyCost = safetyCost * 12;
                 let paymentAmount = 0, paymentInterest = 0, paymentPrincipal = 0, paymentRemaining = 0;
                 let loanStatus = 'none'; // 'none' | 'grace' | 'repay' | 'done'
                 if ((selectedMethod === 'A' || (selectedMethod === 'B' && selectedSubMethod === 'B2')) && loanSchedule.length > 0) {
